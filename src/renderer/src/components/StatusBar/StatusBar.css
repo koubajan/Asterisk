@@ -1,0 +1,45 @@
+.statusbar {
+  grid-area: statusbar;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  gap: 16px;
+}
+
+.statusbar-filename {
+  color: var(--text-secondary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-saved {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.statusbar-saved-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.statusbar-saved-dot.dirty {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.statusbar-spacer {
+  flex: 1;
+}
+
+.statusbar-wordcount {
+  color: var(--text-muted);
+}

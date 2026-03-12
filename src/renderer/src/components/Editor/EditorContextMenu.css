@@ -1,0 +1,51 @@
+.editor-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: ctx-in 0.1s ease-out;
+}
+
+@keyframes ctx-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.editor-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  text-align: left;
+  transition: background 0.08s;
+}
+
+.editor-ctx-item:hover {
+  background: var(--bg-hover);
+}
+
+.editor-ctx-item svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.editor-ctx-shortcut {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.editor-ctx-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}

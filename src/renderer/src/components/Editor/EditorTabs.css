@@ -1,0 +1,95 @@
+.editor-tabs {
+  flex-shrink: 0;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-editor);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-tabs-list {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 4px;
+  scrollbar-width: none;
+}
+
+.editor-tabs-list::-webkit-scrollbar {
+  height: 0;
+  display: none;
+}
+
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 8px 12px;
+  min-width: 0;
+  max-width: 180px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.editor-tab:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.editor-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border-bottom-color: var(--accent);
+}
+
+.editor-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-tab-dirty {
+  font-size: 10px;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.editor-tab-dirty.dirty {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.editor-tab:hover .editor-tab-close,
+.editor-tab-close:focus {
+  opacity: 1;
+}
+
+.editor-tab-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.editor-tab.active .editor-tab-close {
+  opacity: 0.8;
+}

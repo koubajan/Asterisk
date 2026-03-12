@@ -1,0 +1,44 @@
+#root {
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr var(--statusbar-height);
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'topbar'
+    'workspace'
+    'statusbar';
+}
+
+.workspace {
+  grid-area: workspace;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.workspace-center {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: row;
+}
+
+.workspace-editor-wrap,
+.workspace-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.workspace-resizer {
+  width: 6px;
+  flex-shrink: 0;
+  background: var(--border-subtle);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.workspace-resizer:hover {
+  background: var(--accent-dim);
+}

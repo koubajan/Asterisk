@@ -1,0 +1,159 @@
+.editor-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-editor);
+  overflow: hidden;
+}
+
+/* ─── File Header ─────────────────────────────────────── */
+
+.editor-header {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid transparent;
+  gap: 2px;
+  transition: border-color 0.2s;
+}
+
+.editor-header.visible {
+  border-color: var(--border);
+}
+
+.editor-header-bookmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.editor-header-bookmark:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.editor-header-bookmark.active {
+  color: var(--accent);
+}
+
+.editor-header-bookmark.active svg {
+  fill: var(--accent);
+}
+
+.editor-header-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.editor-header-ext {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  position: relative;
+  top: 0.5px;
+}
+
+.editor-header-spacer {
+  flex: 1;
+}
+
+.editor-header-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.editor-header-status.dirty {
+  color: var(--accent);
+}
+
+
+/* ─── CodeMirror Container ───────────────────────────── */
+
+.editor-cm-wrapper {
+  flex: 1;
+  overflow: hidden;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-cm-wrapper .cm-editor {
+  height: 100%;
+}
+
+.editor-cm-wrapper .cm-scroller {
+  overflow: auto;
+  height: 100%;
+}
+
+/* ─── Empty State ────────────────────────────────────── */
+
+.editor-pane-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  user-select: none;
+}
+
+.editor-pane-empty-mark {
+  font-size: 40px;
+  color: var(--accent);
+  opacity: 0.25;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.editor-pane-empty h2 {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.editor-pane-empty p {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.editor-pane-empty-keys {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.editor-pane-empty-keys span {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.editor-pane-empty-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

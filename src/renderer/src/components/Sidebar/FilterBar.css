@@ -1,0 +1,202 @@
+/* ─── FilterBar ──────────────────────────────────────────────────────────── */
+
+.filterbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* ─── Search ─────────────────────────────────────────────────────────────── */
+
+.filterbar-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.filterbar-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filterbar-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  padding: 0;
+  min-width: 0;
+}
+
+.filterbar-input::placeholder {
+  color: var(--text-muted);
+}
+
+.filterbar-clear {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.filterbar-clear:hover {
+  color: var(--danger);
+}
+
+/* ─── Sort controls ──────────────────────────────────────────────────────── */
+
+.filterbar-controls {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.filterbar-sort-wrap {
+  position: relative;
+}
+
+.filterbar-sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: background 0.1s, color 0.1s;
+  letter-spacing: 0.01em;
+}
+
+.filterbar-sort-dropdown {
+  min-width: 0;
+}
+
+.filterbar-sort-dropdown span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filterbar-sort-dropdown .open {
+  transform: rotate(180deg);
+}
+
+.filterbar-sort-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.filterbar-sort-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+
+.filterbar-sort-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.filterbar-sort-dropdown-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.filterbar-sort-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.filterbar-sort-btn.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+/* ─── Tag chips ──────────────────────────────────────────────────────────── */
+
+.filterbar-tags {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px 7px;
+}
+
+.filterbar-tags-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.filterbar-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filterbar-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 5px;
+  font-size: 10.5px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.1s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filterbar-tag-chip:hover {
+  border-color: var(--chip-color, var(--accent));
+  color: var(--text-primary);
+}
+
+.filterbar-tag-chip.active {
+  border-color: var(--chip-color, var(--accent));
+  background: color-mix(in srgb, var(--chip-color, var(--accent)) 15%, transparent);
+  color: var(--text-primary);
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--chip-color, var(--accent));
+  flex-shrink: 0;
+}
