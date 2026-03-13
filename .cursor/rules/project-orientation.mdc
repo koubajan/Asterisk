@@ -1,0 +1,80 @@
+---
+description: Asterisk project overview - architecture, directory structure, and key conventions
+alwaysApply: true
+---
+
+# Asterisk Project Overview
+
+**Asterisk** is a dark-themed Markdown note editor built with Electron + React + TypeScript + CodeMirror 6.
+
+## Architecture
+
+Standard Electron architecture with three contexts:
+
+| Context | Location | Role |
+|---|----|---|
+| Main | `src/main/` | Node.js process - window, menu, file system |
+| Preload | `src/preload/` | Bridge exposing API to renderer |
+| Renderer | `src/renderer/src/` | React frontend - UI components |
+
+## Directory Structure
+
+```
+src/
+├── main/
+│   ├── index.ts          # Entry: window creation, lifecycle
+│   ├── menu.ts           # Application menu setup
+│   └── ipc/
+│       ├── handlers.ts   # IPC event registration
+│       └── fileSystem.ts # File operation handlers
+├── preload/
+│   ├── index.ts          # Exposes `window.asterisk` API
+│   └── types.ts          # TypeScript interfaces
+└── renderer/
+    ├── index.html        # HTML entry point
+    └── src/
+        ├── main.tsx      # React entry point
+        ├── App.tsx       # Root component, layout
+        ├── types/
+        │   └── index.ts  # Shared types
+        ├── store/
+        │   ├── useWorkspace.ts  # Zustand: files, tabs, folders
+        │   └── useSettings.ts   # Zustand: themes, typography
+        ├── hooks/
+        │   ├── useAutoSave.ts   # Auto-save logic
+        │   └── useFileOps.ts    # File operations
+        ├── styles/
+        │   ├── global.css       # Base styles, CSS vars
+        │   └── layout.css       # Layout utilities
+        └── components/
+            ├── TopBar/          # Title bar, window controls
+            ├── Sidebar/         # File tree, filter bar
+            ├── Editor/          # CodeMirror editor, tabs
+            ├── Preview/         # Markdown preview
+            ├── StatusBar/       # Bottom status bar
+            ├── Settings/        # Settings modal
+            └── NeuralGraph/     # Graph visualization
+```
+
+## Key Conventions
+
+- **State**: Use Zustand stores (`useWorkspace`, `useSettings`)
+- **IPC**: Main process handlers in `src/main/ipc/`, exposed via `window.asterisk`
+- **Styling**: CSS files colocated with components (`Component.tsx` + `Component.css`)
+- **Build**: `electron-vite` - see `electron.vite.config.ts`
+
+## Running
+
+```bash
+npm run dev      # Development with hot reload
+npm run build    # Production build
+npm run preview  # Preview production build
+```
+
+## Key Dependencies
+
+- `@codemirror/*` - Editor functionality
+- `marked` - Markdown rendering
+- `zustand` - State management
+- `lucide-react` - Icons
+- `d3` - Graph visualization

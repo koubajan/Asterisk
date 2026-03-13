@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import './EditorTabs.css'
@@ -8,7 +8,9 @@ export default function EditorTabs() {
   const activeFileIndex = useWorkspace((s) => s.activeFileIndex)
   const setActiveFileIndex = useWorkspace((s) => s.setActiveFileIndex)
   const closeTab = useWorkspace((s) => s.closeTab)
+  const reorderOpenFiles = useWorkspace((s) => s.reorderOpenFiles)
   const tabListRef = useRef<HTMLDivElement>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   if (openFiles.length === 0) return null
 
@@ -28,6 +30,34 @@ export default function EditorTabs() {
     }
   }
 
+  function handleDragStart(e: React.DragEvent, index: number) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+    e.dataTransfer.setData('application/x-editor-tab-index', String(index))
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null)
+  }
+
+  function handleDrop(e: React.DragEvent, toIndex: number) {
+    e.preventDefault()
+    setDragOverIndex(null)
+    const fromIndex = parseInt(e.dataTransfer.getData('application/x-editor-tab-index'), 10)
+    if (Number.isNaN(fromIndex) || fromIndex === toIndex) return
+    reorderOpenFiles(fromIndex, toIndex)
+  }
+
+  function handleDragEnd() {
+    setDragOverIndex(null)
+  }
+
   return (
     <div className="editor-tabs" ref={tabListRef}>
       <div className="editor-tabs-list" role="tablist">
@@ -39,9 +69,15 @@ export default function EditorTabs() {
               key={file.path}
               role="tab"
               aria-selected={isActive}
-              className={`editor-tab ${isActive ? 'active' : ''}`}
+              draggable
+              className={`editor-tab ${isActive ? 'active' : ''} ${dragOverIndex === index ? 'editor-tab-drag-over' : ''}`}
               onClick={() => handleTabClick(index)}
               onAuxClick={(e) => handleAuxClick(e, index)}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
             >
               <span className="editor-tab-name" title={file.path}>
                 {name}

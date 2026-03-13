@@ -10,6 +10,7 @@ import { asteriskEditorTheme, asteriskHighlighting } from './asteriskTheme'
 import { markdownKeymap } from './keybindings'
 import { editorLinkClick } from './editorLinkClick'
 import { autocompletion } from '@codemirror/autocomplete'
+import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { editorCommandsExtension, commandCompletionSource } from './commands'
 
 interface UseCodeMirrorOptions {
@@ -83,8 +84,9 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
       settingsCompartment.of(initialSettings),
       editorLinkClick(getCurrentFilePath ?? (() => null)),
       editorCommandsExtension(getCurrentFilePath ?? (() => null)),
-      autocompletion({ override: [commandCompletionSource] }),
-      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      autocompletion({ override: [commandCompletionSource(getCurrentFilePath ?? (() => null))] }),
+      highlightSelectionMatches(),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab, ...searchKeymap]),
       markdownKeymap,
       saveKeymap,
       EditorView.updateListener.of((update) => {

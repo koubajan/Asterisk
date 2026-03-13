@@ -98,18 +98,20 @@ export const asteriskEditorTheme = EditorView.theme(
       color: 'var(--text-secondary)'
     },
     '.cm-completionIcon-keyword::before': {
-      content: '"⌘"',
-      opacity: 0.7,
-      marginRight: '4px',
-      fontSize: '12px'
+      display: 'none'
+    },
+    '.cm-completionIcon-keyword': {
+      display: 'none'
     },
     '.cm-completionInfo': {
-      padding: '10px 12px',
-      maxWidth: '260px',
+      padding: '8px 12px',
+      maxWidth: '280px',
       fontSize: '12px',
-      lineHeight: '1.5',
+      lineHeight: '1.45',
       color: 'var(--text-secondary)',
-      borderLeft: '1px solid var(--border)'
+      background: 'var(--bg-base)',
+      borderLeft: '1px solid var(--border)',
+      borderRadius: '0 var(--radius) var(--radius) 0'
     },
     '.cm-completionSectionLabel': {
       fontSize: '11px',

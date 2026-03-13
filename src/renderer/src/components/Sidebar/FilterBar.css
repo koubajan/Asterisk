@@ -6,6 +6,7 @@
   gap: 0;
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  background: transparent;
 }
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
@@ -13,9 +14,18 @@
 .filterbar-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 8px;
+  padding: 8px 10px;
+  margin: 8px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.filterbar-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .filterbar-search-icon {
@@ -42,13 +52,18 @@
 .filterbar-clear {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   color: var(--text-muted);
   flex-shrink: 0;
-  transition: color 0.1s;
+  border-radius: var(--radius-sm);
+  transition: color 0.1s, background 0.1s;
 }
 
 .filterbar-clear:hover {
-  color: var(--danger);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* ─── Sort controls ──────────────────────────────────────────────────────── */
@@ -97,17 +112,17 @@
   position: absolute;
   top: 100%;
   left: 0;
-  margin-top: 2px;
+  margin-top: 4px;
   min-width: 160px;
   padding: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .filterbar-sort-dropdown-item {
@@ -171,13 +186,13 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px 2px 5px;
-  font-size: 10.5px;
-  border-radius: 100px;
+  padding: 3px 8px 3px 6px;
+  font-size: 11px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
-  color: var(--text-muted);
-  background: transparent;
-  transition: all 0.1s;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  transition: all 0.15s;
   cursor: pointer;
   white-space: nowrap;
 }

@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
-import { Star } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { Star, Maximize2, Minimize2 } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useCodeMirror } from './useCodeMirror'
 import EditorContextMenu from './EditorContextMenu'
+import './CommandSuggestionPanel.css'
 import './EditorPane.css'
 
 export default function EditorPane() {
@@ -12,7 +13,36 @@ export default function EditorPane() {
   const bookmarks = useWorkspace((s) => s.bookmarks)
   const toggleBookmark = useWorkspace((s) => s.toggleBookmark)
   const filePathRef = useRef<string | null>(null)
+  const paneRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   filePathRef.current = openFile?.path ?? null
+
+  const toggleFullscreen = useCallback(() => {
+    const el = paneRef.current
+    if (!el) return
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {})
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === 'F11' || (e.metaKey && e.shiftKey && e.key === 'f')) && paneRef.current?.contains(document.activeElement ?? null)) {
+        e.preventDefault()
+        toggleFullscreen()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [toggleFullscreen])
 
   async function handleSave() {
     if (!openFile) return
@@ -38,7 +68,7 @@ export default function EditorPane() {
   const fileBase = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName
 
   return (
-    <div className="editor-pane">
+    <div ref={paneRef} className={`editor-pane ${isFullscreen ? 'editor-pane-fullscreen' : ''}`}>
       {/* File header — always present when file is open */}
       <div className={`editor-header ${openFile ? 'visible' : ''}`}>
         {openFile && (
@@ -55,6 +85,15 @@ export default function EditorPane() {
             <span className="editor-header-name">{fileBase}</span>
             {fileExt && <span className="editor-header-ext">.{fileExt}</span>}
             <span className="editor-header-spacer" />
+            <button
+              type="button"
+              className="editor-header-fullscreen"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit fullscreen (⌘⇧F)' : 'Fullscreen editor (⌘⇧F)'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen editor'}
+            >
+              {isFullscreen ? <Minimize2 size={14} strokeWidth={1.7} /> : <Maximize2 size={14} strokeWidth={1.7} />}
+            </button>
             <span className={`editor-header-status ${openFile.isDirty ? 'dirty' : ''}`}>
               {openFile.isDirty ? '●' : '○'}
             </span>

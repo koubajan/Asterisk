@@ -50,6 +50,7 @@ interface WorkspaceState {
   openFileNode: (node: FolderNode) => Promise<void>
   setActiveFileIndex: (index: number) => void
   closeTab: (index: number) => void
+  reorderOpenFiles: (fromIndex: number, toIndex: number) => void
   updateContent: (content: string) => void
   markSaved: () => void
   startEditing: () => void
@@ -153,6 +154,19 @@ export const useWorkspace = create<WorkspaceState>()(
           nextIndex = state.activeFileIndex - 1
         }
         return { openFiles: nextFiles, activeFileIndex: nextIndex }
+      }),
+
+      reorderOpenFiles: (fromIndex, toIndex) => set((state) => {
+        const { openFiles, activeFileIndex } = state
+        if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= openFiles.length || toIndex >= openFiles.length) return state
+        const next = [...openFiles]
+        const [removed] = next.splice(fromIndex, 1)
+        next.splice(toIndex, 0, removed)
+        let nextActive = activeFileIndex
+        if (activeFileIndex === fromIndex) nextActive = toIndex
+        else if (fromIndex < activeFileIndex && toIndex >= activeFileIndex) nextActive = activeFileIndex - 1
+        else if (fromIndex > activeFileIndex && toIndex <= activeFileIndex) nextActive = activeFileIndex + 1
+        return { openFiles: next, activeFileIndex: nextActive }
       }),
 
       updateContent: (content) => {

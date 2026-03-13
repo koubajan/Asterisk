@@ -12,6 +12,9 @@ const api: AsteriskAPI = {
   createFile: (dirPath: string, name: string) =>
     ipcRenderer.invoke('fs:create-file', dirPath, name),
 
+  createCanvas: (dirPath: string, name: string) =>
+    ipcRenderer.invoke('fs:create-canvas', dirPath, name),
+
   createFolder: (dirPath: string, name: string) =>
     ipcRenderer.invoke('fs:create-folder', dirPath, name),
 
@@ -20,10 +23,16 @@ const api: AsteriskAPI = {
   renameItem: (oldPath: string, newName: string) =>
     ipcRenderer.invoke('fs:rename-item', oldPath, newName),
 
+  moveItem: (fromPath: string, toDirPath: string) =>
+    ipcRenderer.invoke('fs:move-item', fromPath, toDirPath),
+
   listDir: (dirPath: string) => ipcRenderer.invoke('fs:list-dir', dirPath),
 
   searchContent: (folderPath: string, query: string) =>
     ipcRenderer.invoke('fs:search-content', folderPath, query),
+
+  readImageAsDataUrl: (filePath: string) =>
+    ipcRenderer.invoke('fs:read-image-data-url', filePath),
 
   onFolderChange: (callback: (tree: FolderNode[]) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, tree: FolderNode[]) => callback(tree)

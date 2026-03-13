@@ -49,3 +49,55 @@
   background: var(--border);
   margin: 3px 0;
 }
+
+/* Expandable sections */
+.editor-ctx-section {
+  margin: 0 -2px;
+}
+
+.editor-ctx-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  text-align: left;
+  transition: background 0.08s;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.editor-ctx-section-header:hover {
+  background: var(--bg-hover);
+}
+
+.editor-ctx-section-header svg:first-of-type {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.editor-ctx-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.editor-ctx-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.editor-ctx-section-items {
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  margin-left: 18px;
+  margin-bottom: 2px;
+}
+
+.editor-ctx-subitem {
+  padding-left: 6px;
+}

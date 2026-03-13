@@ -37,57 +37,51 @@ export function parseCommandLine(line: string): { prefix: string; name: string; 
   return { prefix: m[1], name: m[2].toLowerCase(), args: (m[3] ?? '').trim() }
 }
 
-function getLineAt(view: EditorView, pos: number): { from: number; to: number; text: string } | null {
+export function getLineAt(view: EditorView, pos: number): { from: number; to: number; text: string } | null {
   const doc = view.state.doc
   if (doc.length === 0) return null
   const line = doc.lineAt(Math.min(pos, doc.length - 1))
   return { from: line.from, to: line.to, text: line.text }
 }
 
-export function editorCommandsExtension(getCurrentFilePath: () => string | null) {
-  return keymap.of([
-    {
-      key: 'Enter',
-      run(view: EditorView): boolean {
-        const pos = view.state.selection.main.head
-        const line = getLineAt(view, pos)
-        if (!line) return false
-        const parsed = parseCommandLine(line.text)
-        if (!parsed) return false
+/** Execute a command for the given line and remove the line. Used when user selects a command from suggestions (click or accept). */
+export function executeCommandLine(
+  view: EditorView,
+  lineFrom: number,
+  lineTo: number,
+  getCurrentFilePath: () => string | null,
+  commandNameOverride?: string
+): void {
+  const line = view.state.doc.sliceString(lineFrom, lineTo)
+  const parsed = parseCommandLine(line)
+  if (!parsed) return
+  const name = (commandNameOverride ?? parsed.name).toLowerCase()
+  const command = commands.find((c) => c.prefix === parsed.prefix && c.name === name)
+  if (!command) return
 
-        const command = commands.find(
-          (c) => c.prefix === parsed.prefix && c.name === parsed.name.toLowerCase()
-        )
-        if (!command) return false
+  const filePath = getCurrentFilePath()
+  const fileContent = view.state.doc.toString()
+  const insertResponse = (text: string) => {
+    const doc = view.state.doc
+    const insertPos = doc.length
+    view.dispatch({
+      changes: {
+        from: insertPos,
+        insert: (insertPos > 0 && !doc.sliceString(insertPos - 1, insertPos).endsWith('\n') ? '\n' : '') + text + '\n'
+      },
+      selection: EditorSelection.cursor(insertPos + text.length + 1)
+    })
+  }
+  const context: CommandContext = { view, filePath, fileContent, insertResponse }
 
-        const filePath = getCurrentFilePath()
-        const fileContent = view.state.doc.toString()
+  Promise.resolve(command.execute(parsed.args, context)).then(() => {
+    view.dispatch({
+      changes: { from: lineFrom, to: Math.min(lineTo + 1, view.state.doc.length), insert: '' },
+      selection: EditorSelection.cursor(lineFrom)
+    })
+  })
+}
 
-        const insertResponse = (text: string) => {
-          const doc = view.state.doc
-          const insertPos = doc.length
-          view.dispatch({
-            changes: { from: insertPos, insert: (insertPos > 0 && !doc.sliceString(insertPos - 1, insertPos).endsWith('\n') ? '\n' : '') + text + '\n' },
-            selection: EditorSelection.cursor(insertPos + text.length + 1)
-          })
-        }
-
-        const context: CommandContext = {
-          view,
-          filePath,
-          fileContent,
-          insertResponse
-        }
-
-        Promise.resolve(command.execute(parsed.args, context)).then(() => {
-          view.dispatch({
-            changes: { from: line.from, to: Math.min(line.to + 1, view.state.doc.length), insert: '' },
-            selection: EditorSelection.cursor(line.from)
-          })
-        })
-
-        return true
-      }
-    }
-  ])
+export function editorCommandsExtension(_getCurrentFilePath: () => string | null) {
+  return keymap.of([])
 }

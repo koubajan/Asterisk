@@ -7,9 +7,9 @@ export default function SettingsModal() {
   const {
     isSettingsOpen, closeSettings,
     activeThemeId, customThemes,
-    typography, lineWrapping, fontSize, tabSize, autoSave, hiddenSyntax,
+    typography, lineWrapping, fontSize, tabSize, autoSave,
     setActiveTheme, addCustomTheme, deleteCustomTheme,
-    setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave, setHiddenSyntax,
+    setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave,
     resetSettings
   } = useSettings()
 
@@ -156,10 +156,6 @@ export default function SettingsModal() {
             <div className="settings-row">
               <label>Auto-save</label>
               <input type="checkbox" checked={autoSave} onChange={e => setAutoSave(e.target.checked)} />
-            </div>
-            <div className="settings-row">
-              <label>Hide markdown syntax</label>
-              <input type="checkbox" checked={hiddenSyntax} onChange={e => setHiddenSyntax(e.target.checked)} />
             </div>
           </div>
         </section>

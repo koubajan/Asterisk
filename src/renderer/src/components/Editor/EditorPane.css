@@ -78,6 +78,31 @@
   color: var(--accent);
 }
 
+.editor-header-fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.editor-header-fullscreen:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+/* Fullscreen: editor pane fills the viewport */
+.editor-pane-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: var(--bg-editor);
+}
+
 
 /* ─── CodeMirror Container ───────────────────────────── */
 

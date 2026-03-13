@@ -31,6 +31,15 @@
   min-height: 0;
 }
 
+.workspace-editor-content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .workspace-resizer {
   width: 6px;
   flex-shrink: 0;

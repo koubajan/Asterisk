@@ -66,7 +66,6 @@ interface SettingsState {
   fontSize: number
   tabSize: number
   autoSave: boolean
-  hiddenSyntax: boolean
   /** Split ratio for editor vs preview (0–1). 0.5 = half and half. */
   editorPreviewRatio: number
 
@@ -80,7 +79,6 @@ interface SettingsState {
   setFontSize: (val: number) => void
   setTabSize: (val: number) => void
   setAutoSave: (val: boolean) => void
-  setHiddenSyntax: (val: boolean) => void
   setEditorPreviewRatio: (val: number) => void
   resetSettings: () => void
 }
@@ -96,7 +94,6 @@ export const useSettings = create<SettingsState>()(
       fontSize: 14,
       tabSize: 2,
       autoSave: true,
-      hiddenSyntax: true,
       editorPreviewRatio: 0.5,
 
       openSettings: () => set({ isSettingsOpen: true }),
@@ -116,7 +113,6 @@ export const useSettings = create<SettingsState>()(
       setFontSize: (fontSize) => set({ fontSize }),
       setTabSize: (tabSize) => set({ tabSize }),
       setAutoSave: (autoSave) => set({ autoSave }),
-      setHiddenSyntax: (hiddenSyntax) => set({ hiddenSyntax }),
       setEditorPreviewRatio: (editorPreviewRatio) => set({ editorPreviewRatio: Math.max(0.2, Math.min(0.8, editorPreviewRatio)) }),
       resetSettings: () => set({ 
         activeThemeId: 'preset-bw',
@@ -125,7 +121,6 @@ export const useSettings = create<SettingsState>()(
         fontSize: 14,
         tabSize: 2,
         autoSave: true,
-        hiddenSyntax: true,
         editorPreviewRatio: 0.5
       })
     }),
@@ -139,7 +134,6 @@ export const useSettings = create<SettingsState>()(
         fontSize: state.fontSize,
         tabSize: state.tabSize,
         autoSave: state.autoSave,
-        hiddenSyntax: state.hiddenSyntax,
         editorPreviewRatio: state.editorPreviewRatio
       })
     }

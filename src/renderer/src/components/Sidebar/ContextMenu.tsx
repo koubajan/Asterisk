@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pencil, Trash2, FilePlus, FolderPlus, Tag, Plus, Check, X } from 'lucide-react'
+import { Pencil, Trash2, FilePlus, FolderPlus, Tag, Plus, Check, X, LayoutGrid } from 'lucide-react'
 import type { FolderNode } from '../../types'
 import { useWorkspace, TAG_COLORS } from '../../store/useWorkspace'
 
@@ -14,11 +14,12 @@ interface ContextMenuProps {
   onToggleTag?: (tagId: string) => void
   onNewFile: (dirPath: string) => void
   onNewFolder: (dirPath: string) => void
+  onNewCanvas?: (dirPath: string) => void
   rootPath: string
 }
 
 export default function ContextMenu({
-  node, x, y, onClose, onRename, onDelete, onToggleTag, onNewFile, onNewFolder, rootPath
+  node, x, y, onClose, onRename, onDelete, onToggleTag, onNewFile, onNewFolder, onNewCanvas, rootPath
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const newTagInputRef = useRef<HTMLInputElement>(null)
@@ -73,6 +74,11 @@ export default function ContextMenu({
       <button className="context-menu-item" onClick={() => { onNewFolder(createDir); onClose() }}>
         <FolderPlus size={13} strokeWidth={1.7} /> New Folder
       </button>
+      {onNewCanvas && (
+        <button className="context-menu-item" onClick={() => { onNewCanvas(createDir); onClose() }}>
+          <LayoutGrid size={13} strokeWidth={1.7} /> New artifact
+        </button>
+      )}
 
       {node && (
         <>

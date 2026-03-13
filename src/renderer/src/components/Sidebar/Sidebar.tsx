@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star } from 'lucide-react'
+import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
 import FileTree from './FileTree'
@@ -41,7 +41,7 @@ function filterTree(
 }
 
 interface CreateTarget {
-  type: 'file' | 'folder'
+  type: 'file' | 'folder' | 'canvas'
   dirPath: string
 }
 
@@ -60,6 +60,7 @@ export default function Sidebar() {
   const fileTags = useWorkspace((s) => s.fileTags)
   const bookmarks = useWorkspace((s) => s.bookmarks)
   const openFileNode = useWorkspace((s) => s.openFileNode)
+  const setError = useWorkspace((s) => s.setError)
 
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('name')
@@ -161,21 +162,42 @@ export default function Sidebar() {
     if (creating.type === 'file') {
       const result = await window.asterisk.createFile(creating.dirPath, name)
       if (result.ok) {
+        setError(null)
         await handleRefresh()
         if (result.data?.node) {
           const openFileNode = useWorkspace.getState().openFileNode
           await openFileNode(result.data.node)
         }
+        setCreating(null)
+        setCreateName('')
+      } else {
+        setError(result.error ?? 'Failed to create file')
       }
     } else if (creating.type === 'folder') {
       const result = await window.asterisk.createFolder(creating.dirPath, name)
       if (result.ok) {
+        setError(null)
         await handleRefresh()
+        setCreating(null)
+        setCreateName('')
+      } else {
+        setError(result.error ?? 'Failed to create folder')
+      }
+    } else if (creating.type === 'canvas') {
+      const result = await window.asterisk.createCanvas(creating.dirPath, name)
+      if (result.ok) {
+        setError(null)
+        await handleRefresh()
+        if (result.data?.node) {
+          const openFileNode = useWorkspace.getState().openFileNode
+          await openFileNode(result.data.node)
+        }
+        setCreating(null)
+        setCreateName('')
+      } else {
+        setError(result.error ?? 'Failed to create artifact')
       }
     }
-
-    setCreating(null)
-    setCreateName('')
   }
 
   function cancelCreate() {
@@ -190,6 +212,11 @@ export default function Sidebar() {
 
   function handleNewFolder(dirPath: string) {
     setCreating({ type: 'folder', dirPath })
+    setCreateName('')
+  }
+
+  function handleNewCanvas(dirPath: string) {
+    setCreating({ type: 'canvas', dirPath })
     setCreateName('')
   }
 
@@ -246,6 +273,9 @@ export default function Sidebar() {
             <button className="sidebar-icon-btn" title="New folder" onClick={() => handleNewFolder(folderPath)}>
               <FolderPlus size={14} strokeWidth={1.7} />
             </button>
+            <button className="sidebar-icon-btn" title="New artifact" onClick={() => handleNewCanvas(folderPath)}>
+              <LayoutGrid size={14} strokeWidth={1.7} />
+            </button>
             <button className="sidebar-icon-btn" title="Refresh" onClick={handleRefresh}>
               <RotateCw size={13} strokeWidth={1.7} />
             </button>
@@ -276,7 +306,7 @@ export default function Sidebar() {
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') cancelCreate() }}
-            placeholder={creating.type === 'file' ? 'File Name' : 'Folder Name'}
+            placeholder={creating.type === 'file' ? 'File Name' : creating.type === 'canvas' ? 'Artifact name' : 'Folder Name'}
           />
           <button type="submit" className="sidebar-create-ok" title="Create">
             <Check size={12} strokeWidth={2.5} />
@@ -396,6 +426,7 @@ export default function Sidebar() {
               rootPath={folderPath}
               onNewFile={handleNewFile}
               onNewFolder={handleNewFolder}
+              onNewCanvas={handleNewCanvas}
             />
           )}
         </div>

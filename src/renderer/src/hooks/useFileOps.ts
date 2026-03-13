@@ -73,5 +73,15 @@ export function useFileOps() {
     return result.data?.newPath ?? null
   }
 
-  return { folderPath, openFolder, refreshTree, createFile, createFolder, deleteItem, renameItem }
+  async function moveItem(fromPath: string, toDirPath: string): Promise<string | null> {
+    const result = await window.asterisk.moveItem(fromPath, toDirPath)
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to move item')
+      return null
+    }
+    await refreshTree()
+    return result.data?.newPath ?? null
+  }
+
+  return { folderPath, openFolder, refreshTree, createFile, createFolder, deleteItem, renameItem, moveItem }
 }

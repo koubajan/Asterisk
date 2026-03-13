@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ChevronRight, Folder, FolderOpen, FileText, File } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FileText, File, LayoutGrid } from 'lucide-react'
 import type { FolderNode } from '../../types'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
@@ -29,6 +29,7 @@ interface FileTreeProps {
   rootPath: string
   onNewFile: (dirPath: string) => void
   onNewFolder: (dirPath: string) => void
+  onNewCanvas?: (dirPath: string) => void
 }
 
 interface ContextMenuState {
@@ -37,15 +38,18 @@ interface ContextMenuState {
   y: number
 }
 
-export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder }: FileTreeProps) {
+const TREE_DRAG_TYPE = 'application/x-asterisk-tree-path'
+
+export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNewCanvas }: FileTreeProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [dropTarget, setDropTarget] = useState<{ path: string; isFolder: boolean } | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
   const openFileNode = useWorkspace((s) => s.openFileNode)
-  const { deleteItem, renameItem } = useFileOps()
+  const { deleteItem, renameItem, moveItem } = useFileOps()
 
   function startRename(node: FolderNode) {
     setRenamingPath(node.path)
@@ -74,7 +78,12 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder }: Fi
   }
 
   return (
-    <div onContextMenu={handleEmptyContextMenu} style={{ minHeight: '100%' }}>
+    <div
+      onContextMenu={handleEmptyContextMenu}
+      onDragLeave={() => setDropTarget(null)}
+      onDragEnd={() => setDropTarget(null)}
+      style={{ minHeight: '100%' }}
+    >
       {nodes.map((node) => (
         <TreeNode
           key={node.path}
@@ -83,12 +92,19 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder }: Fi
           renamingPath={renamingPath}
           renameValue={renameValue}
           renameInputRef={renameInputRef}
+          dropTarget={dropTarget}
           onOpen={openFileNode}
           onContextMenu={(n, x, y) => setContextMenu({ node: n, x, y })}
           onStartRename={startRename}
           onRenameChange={setRenameValue}
           onRenameCommit={commitRename}
           onRenameCancel={() => setRenamingPath(null)}
+          onDragStart={(path) => setDropTarget(null)}
+          onDropTarget={setDropTarget}
+          onDrop={async (fromPath, toDirPath) => {
+            setDropTarget(null)
+            await moveItem(fromPath, toDirPath)
+          }}
         />
       ))}
       {contextMenu && (
@@ -103,6 +119,7 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder }: Fi
           onToggleTag={contextMenu.node ? (tagId) => useWorkspace.getState().toggleFileTag(contextMenu.node!.path, tagId) : undefined}
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
+          onNewCanvas={onNewCanvas}
         />
       )}
     </div>
@@ -115,24 +132,46 @@ interface TreeNodeProps {
   renamingPath: string | null
   renameValue: string
   renameInputRef: React.RefObject<HTMLInputElement>
+  dropTarget: { path: string; isFolder: boolean } | null
   onOpen: (node: FolderNode) => void
   onContextMenu: (node: FolderNode, x: number, y: number) => void
   onStartRename: (node: FolderNode) => void
   onRenameChange: (v: string) => void
   onRenameCommit: (node: FolderNode) => void
   onRenameCancel: () => void
+  onDragStart: (path: string) => void
+  onDropTarget: (target: { path: string; isFolder: boolean } | null) => void
+  onDrop: (fromPath: string, toDirPath: string) => Promise<void>
+}
+
+function getParentPath(nodePath: string): string {
+  const sep = nodePath.includes('\\') ? '\\' : '/'
+  const last = nodePath.lastIndexOf(sep)
+  return last <= 0 ? '' : nodePath.slice(0, last)
+}
+
+function pathIsInside(parentPath: string, childPath: string): boolean {
+  if (!parentPath || parentPath === childPath) return false
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/$/, '')
+  const p = norm(parentPath)
+  const c = norm(childPath)
+  return c === p || c.startsWith(p + '/')
 }
 
 function TreeNode(props: TreeNodeProps) {
   const {
-    node, openFilePath, renamingPath, renameValue, renameInputRef,
-    onOpen, onContextMenu, onStartRename, onRenameChange, onRenameCommit, onRenameCancel
+    node, openFilePath, renamingPath, renameValue, renameInputRef, dropTarget,
+    onOpen, onContextMenu, onStartRename, onRenameChange, onRenameCommit, onRenameCancel,
+    onDragStart, onDropTarget, onDrop
   } = props
 
   const [open, setOpen] = useState(true)
   const isFolder = node.kind === 'folder'
   const isActive = node.path === openFilePath
   const isRenaming = node.path === renamingPath
+  const parentPath = getParentPath(node.path)
+  const targetDirPath = isFolder ? node.path : parentPath
+  const isDropTarget = dropTarget?.path === node.path
 
   // Indentation: 12px base + 16px per depth level
   const paddingLeft = 12 + node.depth * 16
@@ -146,6 +185,38 @@ function TreeNode(props: TreeNodeProps) {
     e.preventDefault()
     e.stopPropagation()
     onContextMenu(node, e.clientX, e.clientY)
+  }
+
+  function handleDragStart(e: React.DragEvent) {
+    const relPath = getRelativePath(openFilePath, node.path)
+    e.dataTransfer.setData('text/plain', `[${node.name}](${relPath})`)
+    e.dataTransfer.setData(TREE_DRAG_TYPE, node.path)
+    e.dataTransfer.effectAllowed = 'copy'
+    onDragStart(node.path)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE)
+    if (!fromPath) return
+    if (fromPath === node.path) return
+    if (isFolder && pathIsInside(fromPath, node.path)) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    onDropTarget({ path: node.path, isFolder })
+  }
+
+  function handleDragLeave() {
+    onDropTarget(null)
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE)
+    if (!fromPath || !targetDirPath) return
+    e.preventDefault()
+    if (fromPath === targetDirPath) return
+    if (pathIsInside(fromPath, targetDirPath)) return
+    await onDrop(fromPath, targetDirPath)
   }
 
   // Split filename into base + extension for styling
@@ -166,17 +237,16 @@ function TreeNode(props: TreeNodeProps) {
   return (
     <>
       <div
-        className={`tree-node${isActive ? ' active' : ''}`}
+        className={`tree-node${isActive ? ' active' : ''}${isDropTarget ? ' tree-node-drop-target' : ''}`}
         style={{ paddingLeft }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         title={node.path}
         draggable
-        onDragStart={(e) => {
-          const relPath = getRelativePath(openFilePath, node.path)
-          e.dataTransfer.setData('text/plain', `[${node.name}](${relPath})`)
-          e.dataTransfer.effectAllowed = 'copy'
-        }}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         {/* Indent Guides (Branching) */}
         {node.depth > 0 && Array.from({ length: node.depth }).map((_, i) => {
@@ -201,7 +271,9 @@ function TreeNode(props: TreeNodeProps) {
             ? (open
                 ? <FolderOpen size={14} strokeWidth={1.4} />
                 : <Folder size={14} strokeWidth={1.4} />)
-            : (nameExt === '.md' || nameExt === '.markdown'
+            : (nameExt === '.artifact'
+                ? <LayoutGrid size={14} strokeWidth={1.4} />
+                : nameExt === '.md' || nameExt === '.markdown'
                 ? <FileText size={14} strokeWidth={1.4} />
                 : <File size={14} strokeWidth={1.4} />)
           }
@@ -243,12 +315,16 @@ function TreeNode(props: TreeNodeProps) {
               renamingPath={renamingPath}
               renameValue={renameValue}
               renameInputRef={renameInputRef}
+              dropTarget={dropTarget}
               onOpen={onOpen}
               onContextMenu={onContextMenu}
               onStartRename={onStartRename}
               onRenameChange={onRenameChange}
               onRenameCommit={onRenameCommit}
               onRenameCancel={onRenameCancel}
+              onDragStart={onDragStart}
+              onDropTarget={onDropTarget}
+              onDrop={onDrop}
             />
           ))}
         </div>

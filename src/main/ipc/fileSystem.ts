@@ -2,7 +2,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import type { FolderNode } from '../../preload/types'
 
-const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.markdown'])
+const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.markdown', '.artifact'])
 
 export async function buildTree(dirPath: string, depth = 0): Promise<FolderNode[]> {
   let entries: import('fs').Dirent[]

@@ -50,6 +50,11 @@
   border-bottom-color: var(--accent);
 }
 
+.editor-tab-drag-over {
+  border-left: 2px solid var(--accent);
+  margin-left: -2px;
+}
+
 .editor-tab-name {
   overflow: hidden;
   text-overflow: ellipsis;

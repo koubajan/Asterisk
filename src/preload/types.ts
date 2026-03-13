@@ -40,11 +40,14 @@ export interface AsteriskAPI {
   readFile(filePath: string): Promise<IpcResult<{ content: string }>>
   writeFile(filePath: string, content: string): Promise<IpcResult>
   createFile(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
+  createCanvas(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
   createFolder(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
   deleteItem(itemPath: string): Promise<IpcResult>
   renameItem(oldPath: string, newName: string): Promise<IpcResult<{ newPath: string }>>
+  moveItem(fromPath: string, toDirPath: string): Promise<IpcResult<{ newPath: string }>>
   listDir(dirPath: string): Promise<IpcResult<{ nodes: FolderNode[] }>>
   searchContent(folderPath: string, query: string): Promise<IpcResult<{ matches: ContentSearchMatch[] }>>
+  readImageAsDataUrl(filePath: string): Promise<IpcResult<{ dataUrl: string }>>
   onFolderChange(callback: (tree: FolderNode[]) => void): () => void
 }
 

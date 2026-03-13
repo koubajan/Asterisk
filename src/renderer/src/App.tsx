@@ -1,10 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useWorkspace } from './store/useWorkspace'
+import { useArtifacts, getCanvasContentForSave } from './store/useArtifacts'
 import { useAutoSave } from './hooks/useAutoSave'
 import TopBar from './components/TopBar/TopBar'
 import Sidebar from './components/Sidebar/Sidebar'
 import EditorPane from './components/Editor/EditorPane'
 import EditorTabs from './components/Editor/EditorTabs'
+import Canvas from './components/Canvas/Canvas'
 import PreviewPane from './components/Preview/PreviewPane'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsModal from './components/Settings/SettingsModal'
@@ -73,6 +75,43 @@ export default function App() {
   // Auto-save hook
   useAutoSave()
 
+  const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
+  const isCanvasOpen = openFile?.path.endsWith('.artifact') ?? false
+  const updateContent = useWorkspace((s) => s.updateContent)
+  const markSaved = useWorkspace((s) => s.markSaved)
+  const loadCanvas = useArtifacts((s) => s.loadCanvas)
+  const closeCanvas = useArtifacts((s) => s.closeCanvas)
+  const artifactsMarkSaved = useArtifacts((s) => s.markSaved)
+
+  useEffect(() => {
+    if (isCanvasOpen && openFile) {
+      loadCanvas(openFile.path, openFile.content)
+    } else {
+      closeCanvas()
+    }
+  }, [isCanvasOpen, openFile?.path, openFile?.content, loadCanvas, closeCanvas])
+
+  useEffect(() => {
+    if (!isCanvasOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        const content = getCanvasContentForSave()
+        if (content && openFile) {
+          window.asterisk.writeFile(openFile.path, content).then((result) => {
+            if (result.ok) {
+              updateContent(content)
+              artifactsMarkSaved()
+              markSaved()
+            }
+          })
+        }
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [isCanvasOpen, openFile?.path, updateContent, markSaved, artifactsMarkSaved])
+
   // Listen for menu events from main process
   useEffect(() => {
     const ipc = (window as any).electron?.ipcRenderer
@@ -94,14 +133,16 @@ export default function App() {
           <div
             className="workspace-editor-wrap"
             style={{
-              flex: previewVisible ? editorPreviewRatio : 1,
+              flex: previewVisible && !isCanvasOpen ? editorPreviewRatio : 1,
               minWidth: 0
             }}
           >
             <EditorTabs />
-            <EditorPane />
+            <div className="workspace-editor-content">
+              {isCanvasOpen ? <Canvas /> : <EditorPane />}
+            </div>
           </div>
-          {previewVisible && (
+          {previewVisible && !isCanvasOpen && (
             <>
               <div
                 className="workspace-resizer"
