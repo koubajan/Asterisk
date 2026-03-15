@@ -64,18 +64,13 @@
   top: 0.5px;
 }
 
+.editor-header .note-date-picker-wrap {
+  margin-left: auto;
+  margin-right: 4px;
+}
+
 .editor-header-spacer {
   flex: 1;
-}
-
-.editor-header-status {
-  font-size: 10px;
-  color: var(--text-muted);
-  transition: color 0.15s;
-}
-
-.editor-header-status.dirty {
-  color: var(--accent);
 }
 
 .editor-header-fullscreen {

@@ -45,6 +45,7 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNe
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [dropTarget, setDropTarget] = useState<{ path: string; isFolder: boolean } | null>(null)
+  const [draggedPath, setDraggedPath] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
@@ -80,8 +81,13 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNe
   return (
     <div
       onContextMenu={handleEmptyContextMenu}
-      onDragLeave={() => setDropTarget(null)}
-      onDragEnd={() => setDropTarget(null)}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTarget(null)
+      }}
+      onDragEnd={() => {
+        setDropTarget(null)
+        setDraggedPath(null)
+      }}
       style={{ minHeight: '100%' }}
     >
       {nodes.map((node) => (
@@ -93,16 +99,21 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNe
           renameValue={renameValue}
           renameInputRef={renameInputRef}
           dropTarget={dropTarget}
+          draggedPath={draggedPath}
           onOpen={openFileNode}
           onContextMenu={(n, x, y) => setContextMenu({ node: n, x, y })}
           onStartRename={startRename}
           onRenameChange={setRenameValue}
           onRenameCommit={commitRename}
           onRenameCancel={() => setRenamingPath(null)}
-          onDragStart={(path) => setDropTarget(null)}
+          onDragStart={(path) => {
+            setDropTarget(null)
+            setDraggedPath(path)
+          }}
           onDropTarget={setDropTarget}
           onDrop={async (fromPath, toDirPath) => {
             setDropTarget(null)
+            setDraggedPath(null)
             await moveItem(fromPath, toDirPath)
           }}
         />
@@ -133,6 +144,7 @@ interface TreeNodeProps {
   renameValue: string
   renameInputRef: React.RefObject<HTMLInputElement>
   dropTarget: { path: string; isFolder: boolean } | null
+  draggedPath: string | null
   onOpen: (node: FolderNode) => void
   onContextMenu: (node: FolderNode, x: number, y: number) => void
   onStartRename: (node: FolderNode) => void
@@ -160,7 +172,7 @@ function pathIsInside(parentPath: string, childPath: string): boolean {
 
 function TreeNode(props: TreeNodeProps) {
   const {
-    node, openFilePath, renamingPath, renameValue, renameInputRef, dropTarget,
+    node, openFilePath, renamingPath, renameValue, renameInputRef, dropTarget, draggedPath,
     onOpen, onContextMenu, onStartRename, onRenameChange, onRenameCommit, onRenameCancel,
     onDragStart, onDropTarget, onDrop
   } = props
@@ -191,29 +203,32 @@ function TreeNode(props: TreeNodeProps) {
     const relPath = getRelativePath(openFilePath, node.path)
     e.dataTransfer.setData('text/plain', `[${node.name}](${relPath})`)
     e.dataTransfer.setData(TREE_DRAG_TYPE, node.path)
-    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.effectAllowed = 'move'
     onDragStart(node.path)
   }
 
   function handleDragOver(e: React.DragEvent) {
-    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE)
+    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE) || draggedPath
     if (!fromPath) return
     if (fromPath === node.path) return
     if (isFolder && pathIsInside(fromPath, node.path)) return
     e.preventDefault()
     e.stopPropagation()
-    e.dataTransfer.dropEffect = 'copy'
+    e.dataTransfer.dropEffect = 'move'
     onDropTarget({ path: node.path, isFolder })
   }
 
-  function handleDragLeave() {
+  function handleDragLeave(e: React.DragEvent) {
+    const related = e.relatedTarget as Node | null
+    if (related != null && e.currentTarget.contains(related)) return
     onDropTarget(null)
   }
 
   async function handleDrop(e: React.DragEvent) {
-    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE)
+    const fromPath = e.dataTransfer.getData(TREE_DRAG_TYPE) || draggedPath
     if (!fromPath || !targetDirPath) return
     e.preventDefault()
+    e.stopPropagation()
     if (fromPath === targetDirPath) return
     if (pathIsInside(fromPath, targetDirPath)) return
     await onDrop(fromPath, targetDirPath)
@@ -237,7 +252,7 @@ function TreeNode(props: TreeNodeProps) {
   return (
     <>
       <div
-        className={`tree-node${isActive ? ' active' : ''}${isDropTarget ? ' tree-node-drop-target' : ''}`}
+        className={`tree-node${isActive ? ' active' : ''}${isDropTarget ? ' tree-node-drop-target' : ''}${isFolder && node.name === 'Artifacts' ? ' tree-node-artifacts-folder' : ''}`}
         style={{ paddingLeft }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
@@ -268,9 +283,11 @@ function TreeNode(props: TreeNodeProps) {
         {/* File / folder icon */}
         <span className="tree-icon" style={tagColor ? { color: tagColor } : undefined}>
           {isFolder
-            ? (open
-                ? <FolderOpen size={14} strokeWidth={1.4} />
-                : <Folder size={14} strokeWidth={1.4} />)
+            ? (node.name === 'Artifacts'
+                ? <LayoutGrid size={14} strokeWidth={1.4} />
+                : (open
+                    ? <FolderOpen size={14} strokeWidth={1.4} />
+                    : <Folder size={14} strokeWidth={1.4} />))
             : (nameExt === '.artifact'
                 ? <LayoutGrid size={14} strokeWidth={1.4} />
                 : nameExt === '.md' || nameExt === '.markdown'
@@ -316,6 +333,7 @@ function TreeNode(props: TreeNodeProps) {
               renameValue={renameValue}
               renameInputRef={renameInputRef}
               dropTarget={dropTarget}
+              draggedPath={draggedPath}
               onOpen={onOpen}
               onContextMenu={onContextMenu}
               onStartRename={onStartRename}

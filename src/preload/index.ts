@@ -31,6 +31,12 @@ const api: AsteriskAPI = {
   searchContent: (folderPath: string, query: string) =>
     ipcRenderer.invoke('fs:search-content', folderPath, query),
 
+  getScheduledNotes: (folderPath: string) =>
+    ipcRenderer.invoke('fs:get-scheduled-notes', folderPath),
+
+  aiChat: (req: import('./types').AIChatRequest) =>
+    ipcRenderer.invoke('ai:chat', req),
+
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('fs:read-image-data-url', filePath),
 

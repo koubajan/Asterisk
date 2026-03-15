@@ -75,7 +75,7 @@ export default function ContextMenu({
         <FolderPlus size={13} strokeWidth={1.7} /> New Folder
       </button>
       {onNewCanvas && (
-        <button className="context-menu-item" onClick={() => { onNewCanvas(createDir); onClose() }}>
+        <button className="context-menu-item" onClick={() => { onNewCanvas(rootPath); onClose() }}>
           <LayoutGrid size={13} strokeWidth={1.7} /> New artifact
         </button>
       )}

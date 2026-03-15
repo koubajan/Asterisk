@@ -3,6 +3,7 @@ import { Star, Maximize2, Minimize2 } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useCodeMirror } from './useCodeMirror'
 import EditorContextMenu from './EditorContextMenu'
+import NoteDatePicker from '../Calendar/NoteDatePicker'
 import './CommandSuggestionPanel.css'
 import './EditorPane.css'
 
@@ -63,6 +64,13 @@ export default function EditorPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openFile?.path])
 
+  // Sync content when openFile.content changes (e.g. after AI apply) so editor updates without reopening
+  useEffect(() => {
+    if (!openFile?.path) return
+    syncEditorContent(openFile.content ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFile?.content])
+
   const fileName = openFile?.name ?? ''
   const fileExt = fileName.includes('.') ? fileName.split('.').pop() : ''
   const fileBase = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName
@@ -85,6 +93,7 @@ export default function EditorPane() {
             <span className="editor-header-name">{fileBase}</span>
             {fileExt && <span className="editor-header-ext">.{fileExt}</span>}
             <span className="editor-header-spacer" />
+            <NoteDatePicker filePath={openFile.path} />
             <button
               type="button"
               className="editor-header-fullscreen"
@@ -94,9 +103,6 @@ export default function EditorPane() {
             >
               {isFullscreen ? <Minimize2 size={14} strokeWidth={1.7} /> : <Maximize2 size={14} strokeWidth={1.7} />}
             </button>
-            <span className={`editor-header-status ${openFile.isDirty ? 'dirty' : ''}`}>
-              {openFile.isDirty ? '●' : '○'}
-            </span>
           </>
         )}
       </div>
@@ -121,13 +127,7 @@ export default function EditorPane() {
         <div className="editor-pane-empty">
           <div className="editor-pane-empty-mark">✱</div>
           <h2>Asterisk</h2>
-          <p>Open a folder and select a note to start writing.</p>
-          <div className="editor-pane-empty-keys">
-            <span><kbd>⌘B</kbd> bold</span>
-            <span><kbd>⌘I</kbd> italic</span>
-            <span><kbd>⌘K</kbd> link</span>
-            <span><kbd>⌘S</kbd> save</span>
-          </div>
+          <p>Open a folder, then select a note.</p>
         </div>
       )}
     </div>

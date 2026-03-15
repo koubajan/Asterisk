@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid } from 'lucide-react'
+import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid, Calendar as CalendarIcon } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
 import FileTree from './FileTree'
 import NeuralGraph from '../NeuralGraph/NeuralGraph'
+import CalendarPanel from '../Calendar/Calendar'
 import FilterBar, { type SortBy, type SortDir } from './FilterBar'
 import type { FolderNode } from '../../types'
 import './Sidebar.css'
@@ -72,7 +73,7 @@ export default function Sidebar() {
   const [createName, setCreateName] = useState('')
   const createInputRef = useRef<HTMLInputElement>(null)
 
-  const [view, setView] = useState<'tree' | 'graph' | 'bookmarks'>('tree')
+  const [view, setView] = useState<'tree' | 'graph' | 'bookmarks' | 'calendar'>('tree')
 
   // ── Content search (search inside files) ────────────────────────────────────
   const [contentMatches, setContentMatches] = useState<{ path: string; snippets: string[] }[]>([])
@@ -184,7 +185,7 @@ export default function Sidebar() {
         setError(result.error ?? 'Failed to create folder')
       }
     } else if (creating.type === 'canvas') {
-      const result = await window.asterisk.createCanvas(creating.dirPath, name)
+      const result = await window.asterisk.createCanvas(folderPath, name)
       if (result.ok) {
         setError(null)
         await handleRefresh()
@@ -264,7 +265,6 @@ export default function Sidebar() {
       )}
 
       <div className="sidebar-header">
-        <span className="sidebar-folder-label">{folderName}</span>
         {view === 'tree' && (
           <>
             <button className="sidebar-icon-btn" title="New file" onClick={() => handleNewFile(folderPath)}>
@@ -283,17 +283,24 @@ export default function Sidebar() {
         )}
         <button
           className={`sidebar-icon-btn sidebar-view-toggle ${view === 'bookmarks' ? 'active' : ''}`}
-          title="Bookmarks"
-          onClick={() => setView('bookmarks')}
+          title={view === 'bookmarks' ? 'File tree' : 'Bookmarks'}
+          onClick={() => setView((v) => (v === 'bookmarks' ? 'tree' : 'bookmarks'))}
         >
           <Star size={13} strokeWidth={1.7} />
         </button>
         <button
           className={`sidebar-icon-btn sidebar-view-toggle ${view === 'graph' ? 'active' : ''}`}
-          title={view === 'tree' ? 'Switch to Neural Graph' : view === 'graph' ? 'Switch to File Tree' : 'Neural Graph'}
-          onClick={() => setView((v) => (v === 'tree' ? 'graph' : 'tree'))}
+          title={view === 'tree' ? 'Neural Graph' : view === 'graph' ? 'File Tree' : view === 'bookmarks' || view === 'calendar' ? 'File Tree' : 'Neural Graph'}
+          onClick={() => setView((v) => (v === 'bookmarks' || v === 'calendar' ? 'tree' : v === 'tree' ? 'graph' : 'tree'))}
         >
           {view === 'tree' ? <GitBranch size={13} strokeWidth={1.7} /> : <List size={14} strokeWidth={1.7} />}
+        </button>
+        <button
+          className={`sidebar-icon-btn sidebar-view-toggle ${view === 'calendar' ? 'active' : ''}`}
+          title={view === 'calendar' ? 'File Tree' : 'Calendar'}
+          onClick={() => setView((v) => (v === 'calendar' ? 'tree' : 'calendar'))}
+        >
+          <CalendarIcon size={13} strokeWidth={1.7} />
         </button>
       </div>
 
@@ -317,8 +324,8 @@ export default function Sidebar() {
         </form>
       )}
 
-      {/* Shared filter bar — hide in bookmarks view */}
-      {view !== 'bookmarks' && (
+      {/* Shared filter bar — hide in bookmarks and calendar views */}
+      {view !== 'bookmarks' && view !== 'calendar' && (
       <FilterBar
         query={query}
         onQueryChange={setQuery}
@@ -331,6 +338,8 @@ export default function Sidebar() {
       />
       )}
 
+      {/* Main content area: tree, graph, bookmarks, calendar — flex so calendar doesn't push layout */}
+      <div className="sidebar-content">
       {/* Bookmarks view */}
       {view === 'bookmarks' && (
         <div className="sidebar-bookmarks">
@@ -373,9 +382,12 @@ export default function Sidebar() {
         <NeuralGraph query={query} selectedTagIds={selectedTagIds} />
       )}
 
+      {/* Calendar view */}
+      {view === 'calendar' && <CalendarPanel />}
+
       {/* Tree view */}
       {view === 'tree' && (
-        <div className="sidebar-tree">
+        <div className="sidebar-tree" key="tree">
           {/* Content matches — files where search query appears inside the file */}
           {query.trim() && (contentMatches.length > 0 || contentSearchLoading) && (
             <div className="sidebar-content-matches">
@@ -431,6 +443,7 @@ export default function Sidebar() {
           )}
         </div>
       )}
+      </div>
       <div className="sidebar-resize-handle" onMouseDown={handleResizeMouseDown} />
     </aside>
   )

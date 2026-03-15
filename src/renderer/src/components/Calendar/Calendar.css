@@ -1,0 +1,324 @@
+.calendar-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.calendar-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.calendar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.calendar-nav-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.calendar-month-grid {
+  flex: 1;
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.calendar-day.other-month {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.calendar-day.today {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.calendar-day.has-notes {
+  position: relative;
+}
+
+.calendar-day.has-notes::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.calendar-day.selected {
+  background: var(--accent);
+  color: var(--bg-base);
+}
+
+.calendar-upcoming {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.calendar-upcoming-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.calendar-upcoming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-upcoming-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  border: none;
+  background: transparent;
+  width: 100%;
+}
+
+.calendar-upcoming-item:hover {
+  background: var(--bg-hover);
+}
+
+.calendar-upcoming-item time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.calendar-day-notes {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  max-height: 120px;
+  overflow: auto;
+}
+
+.calendar-day-notes-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.calendar-day-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-day-notes-list button {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.calendar-day-notes-list button:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.calendar-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* NoteDatePicker (inline / editor) */
+.note-date-picker-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.note-date-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.note-date-picker-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.note-date-picker-btn-icon {
+  border: none;
+  padding: 4px;
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  background: transparent;
+}
+
+.note-date-picker-btn-icon:hover {
+  background: var(--bg-hover);
+}
+
+.note-date-picker-clear {
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.note-date-picker-clear-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.note-date-picker-clear:hover {
+  color: var(--danger);
+  background: var(--bg-hover);
+}
+
+/* Picker dropdown: compact, no overflow */
+.note-date-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  z-index: 1000;
+  min-width: 0;
+}
+
+.note-date-picker-dropdown-portal {
+  position: fixed;
+  margin-top: 0;
+}
+
+.note-date-picker-dropdown-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.note-date-picker-datetime {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.note-date-picker-datetime:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.note-date-picker-actions {
+  display: flex;
+  gap: 4px;
+}

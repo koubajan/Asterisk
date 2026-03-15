@@ -69,3 +69,100 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ─── CodeMirror find panel — match app, slide from right, proper casing ───── */
+
+.cm-panel.cm-search {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  font-family: var(--font-ui) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  text-transform: capitalize;
+}
+
+.cm-panel.cm-search .cm-textfield,
+.cm-panel.cm-search .cm-textfield::placeholder {
+  text-transform: none;
+}
+
+/* Hide whole word, match case, regex — not needed for notes */
+.cm-panel.cm-search label,
+.cm-panel.cm-search input[type="checkbox"] {
+  display: none !important;
+}
+
+.cm-panel.cm-search [name="close"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  border-radius: var(--radius-sm) !important;
+  transition: color 0.12s, background 0.12s;
+}
+
+.cm-panel.cm-search [name="close"]:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-hover) !important;
+}
+
+.cm-panel.cm-search .cm-textfield {
+  flex: 1 !important;
+  min-width: 140px !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  padding: 6px 10px !important;
+  font-size: 13px !important;
+  font-family: var(--font-ui) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cm-panel.cm-search .cm-textfield::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.cm-panel.cm-search .cm-textfield:focus {
+  outline: none !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px var(--accent) !important;
+}
+
+.cm-panel.cm-search .cm-button {
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-family: var(--font-ui) !important;
+  cursor: pointer !important;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-transform: capitalize;
+}
+
+.cm-panel.cm-search .cm-button:hover {
+  background: var(--bg-elevated) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+/* Search match highlights — match app accent */
+.cm-searchMatch {
+  background-color: var(--accent-dim) !important;
+  border-radius: 2px;
+}
+
+.cm-searchMatch-selected {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  border-radius: 2px;
+}

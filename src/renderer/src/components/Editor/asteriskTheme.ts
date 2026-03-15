@@ -124,6 +124,17 @@ export const asteriskEditorTheme = EditorView.theme(
     },
     '.cm-completionSectionLabel:first-child': {
       marginTop: 0
+    },
+    /* Search panel — ensure dark theme variables apply */
+    '.cm-panel.cm-search': {
+      backgroundColor: 'var(--bg-elevated)',
+      borderColor: 'var(--border-subtle)'
+    },
+    '.cm-searchMatch': {
+      backgroundColor: 'rgba(255, 255, 255, 0.15)'
+    },
+    '.cm-searchMatch-selected': {
+      backgroundColor: 'rgba(255, 255, 255, 0.28)'
     }
   },
   { dark: true }

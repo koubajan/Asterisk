@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FolderNode, EditorFile } from '../types'
+import { parseFrontmatter, serializeFrontmatter, setScheduled as setScheduledFm } from '../utils/frontmatter'
 
 export interface WorkspaceFolder {
   path: string
@@ -41,6 +42,11 @@ interface WorkspaceState {
   customTags: CustomTag[]              // all defined tags
   fileTags: Record<string, string[]>   // path → tag ids
 
+  // ── Calendar / scheduled notes ───────────────────────────────────────────────
+  noteSchedules: Record<string, string>   // path → ISO date string
+  loadScheduledNotes: () => Promise<void>
+  setNoteDate: (filePath: string, dateIso: string | null) => Promise<void>
+
   toggleBookmark: (path: string) => void
 
   addWorkspace: (path: string, name: string, tree: FolderNode[]) => void
@@ -59,6 +65,8 @@ interface WorkspaceState {
   toggleSidebar: () => void
   setError: (msg: string | null) => void
   closeFile: () => void
+  /** Update all references from oldPath to newPath (e.g. after move). */
+  updateFilePathInWorkspace: (oldPath: string, newPath: string) => void
 
   addCustomTag: (name: string, color: string) => string
   updateCustomTag: (id: string, updates: Partial<Pick<CustomTag, 'name' | 'color'>>) => void
@@ -83,6 +91,36 @@ export const useWorkspace = create<WorkspaceState>()(
       bookmarks: [],
       customTags: [],
       fileTags: {},
+      noteSchedules: {},
+
+      loadScheduledNotes: async () => {
+        const { workspaces, activeWorkspaceIndex } = get()
+        const root = workspaces[activeWorkspaceIndex]?.path
+        if (!root) return
+        const res = await window.asterisk.getScheduledNotes(root)
+        if (!res.ok || !res.data?.notes) return
+        const map: Record<string, string> = {}
+        for (const { path: p, scheduled } of res.data.notes) map[p] = scheduled
+        set({ noteSchedules: map })
+      },
+
+      setNoteDate: async (filePath, dateIso) => {
+        const res = await window.asterisk.readFile(filePath)
+        if (!res.ok || res.data?.content === undefined) return
+        const parsed = parseFrontmatter(res.data.content)
+        const next = setScheduledFm(parsed, dateIso)
+        const content = serializeFrontmatter(next.frontmatter, next.body)
+        await window.asterisk.writeFile(filePath, content)
+        set((s) => {
+          const nextSchedules = { ...s.noteSchedules }
+          if (dateIso) nextSchedules[filePath] = dateIso
+          else delete nextSchedules[filePath]
+          const nextFiles = s.openFiles.map((f) =>
+            f.path === filePath ? { ...f, content, isDirty: false } : f
+          )
+          return { noteSchedules: nextSchedules, openFiles: nextFiles }
+        })
+      },
 
       toggleBookmark: (path) => set((s) => {
         const has = s.bookmarks.includes(path)
@@ -236,6 +274,30 @@ export const useWorkspace = create<WorkspaceState>()(
         else delete newFileTags[path]
         return { fileTags: newFileTags }
       }),
+
+      updateFilePathInWorkspace: (oldPath, newPath) => set((s) => {
+        const newName = newPath.split(/[/\\]/).pop() ?? newPath
+        const nextFiles = s.openFiles.map((f) =>
+          f.path === oldPath ? { ...f, path: newPath, name: newName } : f
+        )
+        const nextFileTags = { ...s.fileTags }
+        if (nextFileTags[oldPath] !== undefined) {
+          nextFileTags[newPath] = nextFileTags[oldPath]
+          delete nextFileTags[oldPath]
+        }
+        const nextBookmarks = s.bookmarks.map((p) => (p === oldPath ? newPath : p))
+        const nextSchedules = { ...s.noteSchedules }
+        if (nextSchedules[oldPath] !== undefined) {
+          nextSchedules[newPath] = nextSchedules[oldPath]
+          delete nextSchedules[oldPath]
+        }
+        return {
+          openFiles: nextFiles,
+          fileTags: nextFileTags,
+          bookmarks: nextBookmarks,
+          noteSchedules: nextSchedules,
+        }
+      }),
     }),
     {
       name: 'asterisk-workspace-v2',
@@ -256,3 +318,24 @@ export const useWorkspace = create<WorkspaceState>()(
 )
 
 export { TAG_COLORS }
+
+/** Get note paths scheduled for a given calendar day (local date). */
+export function getNotesByDate(noteSchedules: Record<string, string>, date: Date): string[] {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const dayStr = `${y}-${m}-${d}`
+  return Object.entries(noteSchedules)
+    .filter(([, iso]) => iso.startsWith(dayStr))
+    .map(([path]) => path)
+}
+
+/** Get upcoming scheduled notes sorted by date (from now). */
+export function getUpcomingNotes(noteSchedules: Record<string, string>, limit = 20): { path: string; scheduled: string }[] {
+  const now = new Date().toISOString()
+  return Object.entries(noteSchedules)
+    .filter(([, iso]) => iso >= now)
+    .map(([path, scheduled]) => ({ path, scheduled }))
+    .sort((a, b) => a.scheduled.localeCompare(b.scheduled))
+    .slice(0, limit)
+}

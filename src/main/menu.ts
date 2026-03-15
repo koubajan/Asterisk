@@ -75,7 +75,7 @@ export function buildMenu(): void {
         },
         {
           label: 'Toggle Sidebar',
-          accelerator: 'CmdOrCtrl+B',
+          accelerator: 'CmdOrCtrl+Shift+B',
           click: () => {
             BrowserWindow.getFocusedWindow()?.webContents.send('menu:toggle-sidebar')
           }

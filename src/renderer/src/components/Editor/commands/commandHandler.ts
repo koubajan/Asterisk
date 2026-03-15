@@ -1,123 +1,79 @@
-import type { Command, CommandContext } from './commandSystem'
-import { registerCommand, getCommands } from './commandSystem'
+import type { CommandContext } from './commandSystem'
+import { registerCommand } from './commandSystem'
+import { useAIChat } from '../../../store/useAIChat'
+import { insertTableAtCursor } from '../keybindings'
 
-function helpCommand(_args: string, context: CommandContext): Promise<void> {
-  const lines = getCommands().map((c) => `  ${c.prefix}${c.name} — ${c.description}`)
-  context.insertResponse('**Available commands:**\n' + lines.join('\n'))
-  return Promise.resolve()
+const DEFAULT_PROMPTS: Record<string, string> = {
+  improve: 'Improve this note for clarity and flow. Keep the same structure and meaning; polish wording and formatting.',
+  outline: 'Suggest or add a clear outline (headings and bullet structure) for this note. Preserve existing content.',
+  expand: 'Expand the key points in this note with a bit more detail. Keep the same tone and structure.',
+  shorten: 'Make this note more concise. Keep the main ideas and remove redundancy.',
+  tone: 'Rewrite this note in a more formal tone. Preserve all content.',
+  casual: 'Rewrite this note in a more casual, friendly tone. Preserve all content.',
+  ask: 'Help me with this note or documentation.'
 }
 
-function dateCommand(_args: string, context: CommandContext): Promise<void> {
-  const date = new Date()
-  const formatted = date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-  context.insertResponse(formatted)
-  return Promise.resolve()
-}
-
-function wordCountCommand(_args: string, context: CommandContext): Promise<void> {
-  const text = context.fileContent.replace(/\s+/g, ' ').trim()
-  const words = text ? text.split(' ').length : 0
-  const chars = context.fileContent.length
-  context.insertResponse(`Words: ${words} · Characters: ${chars}`)
-  return Promise.resolve()
-}
-
-function timeCommand(_args: string, context: CommandContext): Promise<void> {
-  const date = new Date()
-  const formatted = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  context.insertResponse(formatted)
-  return Promise.resolve()
-}
-
-function randomCommand(args: string, context: CommandContext): Promise<void> {
-  const parts = args.split(/\s+/).filter(Boolean).map((s) => parseInt(s, 10))
-  let min = 0
-  let max = 100
-  if (parts.length >= 2 && !Number.isNaN(parts[0]) && !Number.isNaN(parts[1])) {
-    min = Math.min(parts[0], parts[1])
-    max = Math.max(parts[0], parts[1])
-  } else if (parts.length === 1 && !Number.isNaN(parts[0])) {
-    max = parts[0]
-  }
-  const value = min + Math.floor(Math.random() * (max - min + 1))
-  context.insertResponse(String(value))
-  return Promise.resolve()
-}
-
-function uuidCommand(_args: string, context: CommandContext): Promise<void> {
-  const uuid = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
-  context.insertResponse(uuid)
-  return Promise.resolve()
-}
-
-function todoCommand(_args: string, context: CommandContext): Promise<void> {
-  context.insertResponse('- [ ] ')
-  return Promise.resolve()
-}
-
-function tableCommand(_args: string, context: CommandContext): Promise<void> {
-  const template = `| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-|          |          |          |`
-  context.insertResponse(template)
+function openAIWithPrompt(args: string, defaultKey: string): Promise<void> {
+  const custom = args.trim()
+  const prompt = custom || DEFAULT_PROMPTS[defaultKey] || DEFAULT_PROMPTS.ask
+  useAIChat.getState().setPendingPrompt(prompt)
+  window.dispatchEvent(new CustomEvent('asterisk:open-ai'))
   return Promise.resolve()
 }
 
 export function registerBuiltInCommands(): void {
   registerCommand({
-    prefix: '>',
-    name: 'help',
-    description: 'List available commands',
-    execute: helpCommand
-  })
-  registerCommand({
-    prefix: '>',
-    name: 'date',
-    description: 'Insert current date',
-    execute: dateCommand
-  })
-  registerCommand({
-    prefix: '>',
-    name: 'wordcount',
-    description: 'Insert word and character count',
-    execute: wordCountCommand
+    prefix: '/',
+    name: 'improve',
+    description: 'Improve clarity and flow',
+    execute: (args, ctx) => openAIWithPrompt(args, 'improve')
   })
   registerCommand({
     prefix: '/',
-    name: 'time',
-    description: 'Insert current time',
-    execute: timeCommand
+    name: 'outline',
+    description: 'Add or suggest outline structure',
+    execute: (args, ctx) => openAIWithPrompt(args, 'outline')
   })
   registerCommand({
     prefix: '/',
-    name: 'random',
-    description: 'Insert random number (optional: min max)',
-    execute: randomCommand
+    name: 'expand',
+    description: 'Expand key points with more detail',
+    execute: (args, ctx) => openAIWithPrompt(args, 'expand')
   })
   registerCommand({
     prefix: '/',
-    name: 'uuid',
-    description: 'Insert a UUID',
-    execute: uuidCommand
+    name: 'shorten',
+    description: 'Make the note more concise',
+    execute: (args, ctx) => openAIWithPrompt(args, 'shorten')
   })
   registerCommand({
     prefix: '/',
-    name: 'todo',
-    description: 'Insert a todo checkbox',
-    execute: todoCommand
+    name: 'tone',
+    description: 'Rewrite in a more formal tone',
+    execute: (args, ctx) => openAIWithPrompt(args, 'tone')
+  })
+  registerCommand({
+    prefix: '/',
+    name: 'casual',
+    description: 'Rewrite in a casual, friendly tone',
+    execute: (args, ctx) => openAIWithPrompt(args, 'casual')
+  })
+  registerCommand({
+    prefix: '/',
+    name: 'ask',
+    description: 'Ask anything about this note',
+    execute: (args, ctx) => openAIWithPrompt(args, 'ask')
   })
   registerCommand({
     prefix: '/',
     name: 'table',
-    description: 'Insert markdown table template',
-    execute: tableCommand
+    description: 'Insert a markdown table (e.g. 4x3 for 4 columns, 3 rows)',
+    execute: (args, ctx) => {
+      const match = args.trim().match(/^(\d+)\s*[x×]\s*(\d+)$/i)
+      const cols = match ? Math.min(12, Math.max(2, parseInt(match[1], 10))) : 3
+      const rows = match ? Math.min(20, Math.max(1, parseInt(match[2], 10))) : 2
+      insertTableAtCursor(ctx.view, cols, rows)
+      return Promise.resolve()
+    }
   })
 }

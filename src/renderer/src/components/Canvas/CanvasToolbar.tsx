@@ -1,4 +1,4 @@
-import { Plus, ZoomIn, ZoomOut, Maximize2, Link2, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group } from 'lucide-react'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 
 interface CanvasToolbarProps {
@@ -19,10 +19,31 @@ interface CanvasToolbarProps {
 }
 
 export default function CanvasToolbar({ onAddCard, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle }: CanvasToolbarProps) {
-  const { data } = useArtifacts()
+  const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
+  const canUndo = historyPast.length > 0
+  const canRedo = historyFuture.length > 0
 
   return (
     <div className="canvas-toolbar-wrap">
+      <button
+        type="button"
+        className="canvas-toolbar-btn"
+        onClick={undo}
+        disabled={!canUndo}
+        title="Undo (⌘Z)"
+      >
+        <Undo2 size={16} strokeWidth={1.7} />
+      </button>
+      <button
+        type="button"
+        className="canvas-toolbar-btn"
+        onClick={redo}
+        disabled={!canRedo}
+        title="Redo (⌘⇧Z)"
+      >
+        <Redo2 size={16} strokeWidth={1.7} />
+      </button>
+      <span className="canvas-toolbar-sep" />
       {onSelectionModeToggle && (
         <button
           type="button"

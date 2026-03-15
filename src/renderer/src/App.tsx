@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useWorkspace } from './store/useWorkspace'
 import { useArtifacts, getCanvasContentForSave } from './store/useArtifacts'
 import { useAutoSave } from './hooks/useAutoSave'
@@ -10,6 +10,7 @@ import Canvas from './components/Canvas/Canvas'
 import PreviewPane from './components/Preview/PreviewPane'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsModal from './components/Settings/SettingsModal'
+import AIChat from './components/AIChat/AIChat'
 import { useSettings, PRESET_THEMES } from './store/useSettings'
 
 /** Lighten a hex color by a factor 0–1 (e.g. 0.04 adds ~4% lightness). */
@@ -22,12 +23,13 @@ function lightenHex(hex: string, factor: number): string {
 }
 
 export default function App() {
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const sidebarVisible = useWorkspace((s) => s.sidebarVisible)
   const toggleSidebar = useWorkspace((s) => s.toggleSidebar)
   const previewVisible = useWorkspace((s) => s.previewVisible)
   const centerRef = useRef<HTMLDivElement>(null)
 
-  const { activeThemeId, customThemes, typography, editorPreviewRatio, setEditorPreviewRatio } = useSettings()
+  const { activeThemeId, customThemes, typography, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth } = useSettings()
 
   const handleResize = useCallback((e: React.MouseEvent) => {
     const startX = e.clientX
@@ -53,6 +55,25 @@ export default function App() {
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
   }, [editorPreviewRatio, setEditorPreviewRatio])
+
+  const handleResizeAi = useCallback((e: React.MouseEvent) => {
+    const startX = e.clientX
+    const startWidth = aiPanelWidth
+    function onMouseMove(move: MouseEvent) {
+      const delta = move.clientX - startX
+      setAiPanelWidth(startWidth + delta)
+    }
+    function onMouseUp() {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [aiPanelWidth, setAiPanelWidth])
 
   useEffect(() => {
     const allThemes = [...PRESET_THEMES, ...customThemes]
@@ -124,9 +145,16 @@ export default function App() {
     }
   }, [toggleSidebar])
 
+  // Open AI panel from /ask command
+  useEffect(() => {
+    const handler = () => setAiPanelOpen(true)
+    window.addEventListener('asterisk:open-ai', handler)
+    return () => window.removeEventListener('asterisk:open-ai', handler)
+  }, [])
+
   return (
     <>
-      <TopBar />
+      <TopBar onOpenAIPanel={() => setAiPanelOpen(true)} />
       <div className="workspace">
         {sidebarVisible && <Sidebar />}
         <div ref={centerRef} className="workspace-center">
@@ -157,6 +185,20 @@ export default function App() {
             </>
           )}
         </div>
+        {aiPanelOpen && (
+          <>
+            <div
+              className="workspace-ai-resizer"
+              onMouseDown={handleResizeAi}
+              title="Drag to resize"
+              role="separator"
+              aria-orientation="vertical"
+            />
+            <div className="workspace-ai-wrap" style={{ width: aiPanelWidth, minWidth: 280, maxWidth: 600 }}>
+              <AIChat onClose={() => setAiPanelOpen(false)} />
+            </div>
+          </>
+        )}
       </div>
       <StatusBar />
       <SettingsModal />

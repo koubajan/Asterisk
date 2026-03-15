@@ -28,7 +28,11 @@ function buildSettingsExtensions(lineWrapping: boolean, fontSize: number, tabSiz
   return [
     indentUnit.of(' '.repeat(safeTabSize)),
     ...(lineWrapping ? [EditorView.lineWrapping] : []),
-    EditorView.theme({ '&': { fontSize: `${safeFontSize}px` } })
+    EditorView.theme({
+      '&': { fontSize: `${safeFontSize}px` },
+      '.cm-content': { fontSize: `${safeFontSize}px` },
+      '.cm-line': { lineHeight: '1.75' }
+    })
   ]
 }
 

@@ -3,6 +3,7 @@ import { Maximize2, Minimize2, Scan } from 'lucide-react'
 import * as d3 from 'd3'
 import { useWorkspace } from '../../store/useWorkspace'
 import type { FolderNode } from '../../types'
+import { parseCanvasContent } from '../../types/canvas'
 import './NeuralGraph.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,7 +11,7 @@ import './NeuralGraph.css'
 interface GraphNode extends d3.SimulationNodeDatum {
   id: string
   name: string
-  kind: 'file' | 'folder'
+  kind: 'file' | 'folder' | 'artifact'
   depth: number
   radius: number
   treeNode: FolderNode
@@ -50,6 +51,25 @@ function resolvePath(fromDir: string, rel: string): string {
   return '/' + out.join('/')
 }
 
+const normalizePath = (p: string): string => p.replace(/\\/g, '/')
+
+/** Resolve file path from artifact: content may be relative or absolute. */
+function resolveArtifactFilePath(artifactPath: string, content: string): string {
+  const base = normalizePath(artifactPath).replace(/\/[^/]+$/, '') || ''
+  if (!content || !content.trim()) return ''
+  const trimmed = content.trim().replace(/^file:\/\/+/, '').replace(/\\/g, '/')
+  if (trimmed.startsWith('/') || /^[A-Za-z]:\//i.test(trimmed)) return normalizePath(trimmed)
+  const joined = base ? base + '/' + trimmed : trimmed
+  const parts = joined.split('/')
+  const out: string[] = []
+  for (const p of parts) {
+    if (p === '..') out.pop()
+    else if (p && p !== '.') out.push(p)
+  }
+  const joinedOut = out.join('/')
+  return (base.startsWith('/') ? '/' : '') + joinedOut
+}
+
 function parseLinks(content: string, filePath: string, pathSet: Set<string>): string[] {
   const targets: string[] = []
   const fromDir = filePath.substring(0, filePath.lastIndexOf('/'))
@@ -83,15 +103,20 @@ async function buildGraphData(
 ): Promise<{ nodes: GraphNode[]; rawLinks: RawLink[] }> {
   const all = flattenTree(tree)
   const pathSet = new Set(all.map((n) => n.path))
+  const pathSetNormalized = new Set(all.map((n) => normalizePath(n.path)))
+  const pathFromNormalized = new Map(all.map((n) => [normalizePath(n.path), n.path]))
 
-  const nodes: GraphNode[] = all.map((n) => ({
-    id: n.path,
-    name: n.name,
-    kind: n.kind,
-    depth: n.depth,
-    radius: n.kind === 'folder' ? Math.max(22, 14 + n.children.length * 2.5) : 12,
-    treeNode: n,
-  }))
+  const nodes: GraphNode[] = all.map((n) => {
+    const isArtifact = n.kind === 'file' && /\.artifact$/i.test(n.name)
+    return {
+      id: n.path,
+      name: n.name,
+      kind: isArtifact ? 'artifact' : n.kind,
+      depth: n.depth,
+      radius: n.kind === 'folder' ? Math.max(22, 14 + n.children.length * 2.5) : (isArtifact ? 14 : 12),
+      treeNode: n,
+    }
+  })
 
   const rawLinks: RawLink[] = []
   for (const n of all) {
@@ -119,6 +144,25 @@ async function buildGraphData(
         } else if (!neuralSeen.has(fwd)) {
           neuralSeen.set(fwd, { source: file.path, target: t, type: 'neural' })
         }
+      }
+    })
+  )
+
+  // Artifact → file links: parse .artifact files and link to referenced files
+  const artifactFiles = all.filter((n) => n.kind === 'file' && /\.artifact$/i.test(n.name))
+  await Promise.all(
+    artifactFiles.map(async (file) => {
+      const res = await window.asterisk.readFile(file.path)
+      if (!res.ok || !res.data?.content) return
+      const data = parseCanvasContent((res.data as { content: string }).content)
+      for (const node of data.nodes) {
+        if (node.type !== 'file' || !node.content) continue
+        const resolved = resolveArtifactFilePath(file.path, node.content)
+        if (!resolved) continue
+        const targetPath = pathFromNormalized.get(resolved)
+        if (!targetPath || targetPath === file.path) continue
+        const key = `${file.path}|||${targetPath}`
+        if (!neuralSeen.has(key)) neuralSeen.set(key, { source: file.path, target: targetPath, type: 'neural' })
       }
     })
   )
@@ -187,7 +231,7 @@ export default function NeuralGraph({ query = '', selectedTagIds = [] }: NeuralG
     d3.select(svgRef.current)
       .selectAll<SVGGElement, GraphNode>('.ng-node')
       .attr('opacity', (d) => {
-        const matchesQuery = !q || d.name.replace(/\.md$/i, '').toLowerCase().includes(q)
+        const matchesQuery = !q || d.name.replace(/\.(md|markdown|artifact)$/i, '').toLowerCase().includes(q)
         const matchesTags = selectedTagIds.length === 0 ||
           selectedTagIds.some(id => (fileTags[d.id] ?? []).includes(id))
         return matchesQuery && matchesTags ? 1 : 0.08
@@ -319,13 +363,14 @@ export default function NeuralGraph({ query = '', selectedTagIds = [] }: NeuralG
       .data(simNodes)
       .join('g')
       .attr('class', (d) => `ng-node ng-node--${d.kind}`)
-      .attr('cursor', (d) => (d.kind === 'file' ? 'pointer' : 'grab'))
+      .attr('cursor', (d) => (d.kind === 'file' || d.kind === 'artifact' ? 'pointer' : 'grab'))
 
     nodeEls.append('circle')
       .attr('r', (d) => d.radius)
-      .attr('fill', (d) => d.kind === 'folder' ? bgElevated : bgSurface)
-      .attr('stroke', (d) => d.kind === 'folder' ? accent : border)
-      .attr('stroke-width', (d) => d.kind === 'folder' ? 2 : 1)
+      .attr('fill', (d) => d.kind === 'folder' ? bgElevated : (d.kind === 'artifact' ? bgElevated : bgSurface))
+      .attr('stroke', (d) => d.kind === 'folder' ? accent : (d.kind === 'artifact' ? accent : border))
+      .attr('stroke-width', (d) => d.kind === 'folder' ? 2 : (d.kind === 'artifact' ? 2 : 1))
+      .attr('stroke-dasharray', (d) => d.kind === 'artifact' ? '4 3' : null)
 
     // Label with dark halo stroke so text is readable over any background
     nodeEls.append('text')
@@ -341,7 +386,7 @@ export default function NeuralGraph({ query = '', selectedTagIds = [] }: NeuralG
       .attr('stroke-linejoin', 'round')
       .attr('pointer-events', 'none')
       .text((d) => {
-        const name = d.name.replace(/\.md$/i, '')
+        const name = d.name.replace(/\.(md|markdown|artifact)$/i, '')
         return name.length > 17 ? name.slice(0, 15) + '…' : name
       })
 
@@ -431,8 +476,11 @@ export default function NeuralGraph({ query = '', selectedTagIds = [] }: NeuralG
           simulation.force('radial-hover', null).alpha(0.1).restart()
           circle.attr('stroke-width', 2)
           label.attr('fill', textSecondary).attr('opacity', 0.95).attr('font-size', 11)
+        } else if (d.kind === 'artifact') {
+          circle.attr('stroke', accent).attr('stroke-width', 2).attr('stroke-dasharray', '4 3')
+          label.attr('fill', textMuted).attr('opacity', 0.65)
         } else {
-          circle.attr('stroke', border).attr('stroke-width', 1)
+          circle.attr('stroke', border).attr('stroke-width', 1).attr('stroke-dasharray', null)
           label.attr('fill', textMuted).attr('opacity', 0.65)
         }
       })
@@ -440,7 +488,7 @@ export default function NeuralGraph({ query = '', selectedTagIds = [] }: NeuralG
     // ── Click to open ─────────────────────────────────────────────────────────
     nodeEls.on('click', (e, d) => {
       e.stopPropagation()
-      if (d.kind !== 'file') return
+      if (d.kind !== 'file' && d.kind !== 'artifact') return
       openFileNodeRef.current(d.treeNode)
     })
 

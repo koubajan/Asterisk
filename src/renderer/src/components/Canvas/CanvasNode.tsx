@@ -2,7 +2,23 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import hljs from 'highlight.js'
 import type { CanvasNode as CanvasNodeType } from '../../types/canvas'
+
+/** File preview type for artifact file nodes */
+type FilePreviewType = 'markdown' | 'code' | 'csv' | 'yaml' | 'plain' | 'error' | null
+
+const CODE_EXTENSIONS: Record<string, string> = {
+  js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+  py: 'python', json: 'json', css: 'css', html: 'html', htm: 'html', xml: 'xml',
+  sh: 'bash', bash: 'bash', sql: 'sql', go: 'go', rs: 'rust', rb: 'ruby',
+  java: 'java', c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp'
+}
+const CODE_EXT_RE = new RegExp('\\.(' + Object.keys(CODE_EXTENSIONS).join('|') + ')$', 'i')
+const CSV_RE = /\.csv$/i
+const YAML_RE = /\.(yaml|yml)$/i
+const MARKDOWN_RE = /\.(md|markdown|txt)$/i
+const PDF_RE = /\.pdf$/i
 
 interface CanvasNodeProps {
   node: CanvasNodeType
@@ -19,6 +35,18 @@ interface CanvasNodeProps {
   onShiftClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   connectionMode?: boolean
+  /** When set, use this instead of loading file content in the node (Canvas loads and passes down). */
+  filePreviewContent?: string | null
+  filePreviewError?: boolean
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function resolveImagePath(workspacePath: string, relOrAbs: string): string {
@@ -68,7 +96,7 @@ const PRESET_COLORS = [
   '#bbdefb', '#c8e6c9', '#ffe0b2', '#f8bbd9', '#d1c4e9'
 ]
 
-export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd, onSelect, selected, onDoubleClick, onContentChange, onTitleChange, onUpdate, onResize, onShiftClick, onContextMenu, connectionMode }: CanvasNodeProps) {
+export default function CanvasNode({ node, workspacePath = '', filePreviewContent, filePreviewError, onDrag, onDragEnd, onSelect, selected, onDoubleClick, onContentChange, onTitleChange, onUpdate, onResize, onShiftClick, onContextMenu, connectionMode }: CanvasNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -80,6 +108,7 @@ export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd
   const [titleValue, setTitleValue] = useState(node.title ?? '')
   const [showColorPicker, setShowColorPicker] = useState<'bg' | 'border' | false>(false)
   const [filePreview, setFilePreview] = useState<string | null>(null)
+  const [filePreviewType, setFilePreviewType] = useState<FilePreviewType>(null)
   const [linkPreview, setLinkPreview] = useState<{ title?: string; description?: string; image?: string } | null>(null)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
@@ -91,6 +120,7 @@ export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd
   const [colorPickerRect, setColorPickerRect] = useState<{ left: number; top: number } | null>(null)
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
+  const lastResizedForPreviewRef = useRef<string | null>(null)
 
   useLayoutEffect(() => {
     if (!showColorPicker || !colorPickerAnchorRef.current || !nodeRootRef.current) {
@@ -122,27 +152,60 @@ export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd
   const formattedHtml = useMemo(() => {
     const raw = node.type === 'text' ? node.content : (node.type === 'file' && filePreview ? filePreview : '')
     if (!raw) return ''
+    if (node.type === 'file' && (filePreviewType === 'code' || filePreviewType === 'yaml') && node.content) {
+      const ext = node.content.replace(/^.*\./, '').toLowerCase()
+      const lang = filePreviewType === 'yaml' ? 'yaml' : (CODE_EXTENSIONS[ext] ?? 'plaintext')
+      try {
+        const result = hljs.highlight(raw, { language: lang })
+        return DOMPurify.sanitize('<pre><code class="hljs">' + result.value + '</code></pre>', { ADD_TAGS: ['pre', 'code', 'span'], ADD_ATTR: ['class'] })
+      } catch {
+        return DOMPurify.sanitize('<pre><code>' + escapeHtml(raw) + '</code></pre>', { ADD_TAGS: ['pre', 'code'] })
+      }
+    }
     const parsed = marked.parse(raw) as string
     return DOMPurify.sanitize(parsed, { ADD_TAGS: ['input'], ADD_ATTR: ['type', 'checked'] })
-  }, [node.type, node.content, filePreview])
+  }, [node.type, node.content, filePreview, filePreviewType])
 
+  // Use parent-provided file preview when available (Canvas loads and passes down)
   useEffect(() => {
-    if (node.type === 'file' && node.content && /[/\\]/.test(node.content)) {
-      const isPdf = /\.pdf$/i.test(node.content)
-      if (isPdf) {
+    if (node.type !== 'file') {
+      setFilePreview(null)
+      setFilePreviewType(null)
+      return
+    }
+    if (filePreviewError) {
+      setFilePreview(null)
+      setFilePreviewType('error')
+      return
+    }
+    if (filePreviewContent != null) {
+      const path = node.content?.trim() ?? ''
+      if (PDF_RE.test(path)) {
         setFilePreview(null)
+        setFilePreviewType('plain')
         return
       }
-      let cancelled = false
-      window.asterisk.readFile(node.content).then((r) => {
-        if (cancelled || !r.ok || !r.data?.content) return
-        const content = (r.data as { content: string }).content
-        setFilePreview(content.slice(0, 400).trim())
-      })
-      return () => { cancelled = true }
+      if (CSV_RE.test(path)) {
+        setFilePreviewType('csv')
+        setFilePreview(filePreviewContent)
+      } else if (YAML_RE.test(path)) {
+        setFilePreviewType('yaml')
+        setFilePreview(filePreviewContent.slice(0, 2000))
+      } else if (CODE_EXT_RE.test(path)) {
+        setFilePreviewType('code')
+        setFilePreview(filePreviewContent.slice(0, 3000))
+      } else if (MARKDOWN_RE.test(path)) {
+        setFilePreviewType('markdown')
+        setFilePreview(filePreviewContent.slice(0, 400).trim())
+      } else {
+        setFilePreviewType('plain')
+        setFilePreview(filePreviewContent.slice(0, 400).trim())
+      }
+      return
     }
     setFilePreview(null)
-  }, [node.type, node.content])
+    setFilePreviewType(null)
+  }, [node.type, node.content, filePreviewContent, filePreviewError])
 
   useEffect(() => {
     if (node.type === 'link' && node.content && /^https?:\/\//i.test(node.content)) {
@@ -235,12 +298,23 @@ export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd
     if (!upd || isEditing || node.type === 'image' || node.type === 'group') return
     const el = contentRef.current
     if (!el) return
+    if (node.type === 'file') {
+      if (!filePreview) {
+        lastResizedForPreviewRef.current = null
+        return
+      }
+      if (lastResizedForPreviewRef.current === filePreview) return
+      lastResizedForPreviewRef.current = filePreview
+    }
     const contentHeight = el.scrollHeight
     const total = NODE_HEADER_HEIGHT + NODE_CONTENT_PADDING + contentHeight
     const clamped = Math.max(NODE_MIN_HEIGHT, Math.min(NODE_MAX_HEIGHT, Math.ceil(total)))
-    if (clamped !== node.height) upd({ height: clamped })
-    // Re-run only when content/width/edit state change; ref for onUpdate so parent re-renders (e.g. drag) don't retrigger
-  }, [node.content, node.type, node.width, isEditing])
+    const updates: Partial<CanvasNodeType> = {}
+    if (clamped !== node.height) updates.height = clamped
+    if (node.type === 'file' && filePreview && node.width < 280) updates.width = Math.max(node.width, 280)
+    if (Object.keys(updates).length) upd(updates)
+    // Omit node.height / node.width from deps to avoid loop: updating them would re-run and re-update
+  }, [node.content, node.type, node.width, isEditing, filePreview])
 
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation()
@@ -474,14 +548,54 @@ export default function CanvasNode({ node, workspacePath = '', onDrag, onDragEnd
             </div>
           ) : (
             <div className="canvas-node-file-wrap">
-              <span className="canvas-node-file">📄 {node.content?.replace(/^.*[/\\]/, '') || 'Link to file'}</span>
-              {filePreview
-                ? (
-                  <div
-                    className="canvas-node-markdown canvas-node-preview"
-                    dangerouslySetInnerHTML={{ __html: formattedHtml }}
-                  />
-                  )
+              {filePreviewType === 'error' ? (
+                <div className="canvas-node-preview canvas-node-preview-error">Couldn’t load preview</div>
+              ) : filePreview === null && node.content ? (
+                <div className="canvas-node-preview canvas-node-preview-loading">Loading…</div>
+              ) : filePreview
+                ? filePreviewType === 'csv'
+                  ? (
+                      <div className="canvas-node-csv-wrap">
+                        <table className="canvas-node-csv-table">
+                          <tbody>
+                            {filePreview.split(/\r?\n/).filter(Boolean).slice(0, 15).map((line, i) => {
+                              const cells = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim())
+                              return (
+                                <tr key={i}>
+                                  {cells.map((cell, j) => (
+                                    <td key={j}>{cell}</td>
+                                  ))}
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  : filePreviewType === 'markdown'
+                    ? (
+                        <div
+                          className="canvas-node-markdown canvas-node-preview"
+                          dangerouslySetInnerHTML={{ __html: formattedHtml }}
+                        />
+                      )
+                    : filePreviewType === 'code' || filePreviewType === 'yaml'
+                    ? (
+                        <div
+                          className="canvas-node-code-preview canvas-node-preview"
+                          dangerouslySetInnerHTML={{ __html: formattedHtml }}
+                        />
+                      )
+                    : filePreviewType === 'plain'
+                      ? (
+                          <pre className="canvas-node-plain-preview canvas-node-preview">{filePreview}</pre>
+                        )
+                      : (
+                          <div
+                            className="canvas-node-markdown canvas-node-preview"
+                            dangerouslySetInnerHTML={{ __html: formattedHtml }}
+                          />
+                        )
                 : null}
             </div>
           )

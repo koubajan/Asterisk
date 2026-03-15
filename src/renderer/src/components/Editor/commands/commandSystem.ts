@@ -53,12 +53,27 @@ export function executeCommandLine(
   commandNameOverride?: string
 ): void {
   const line = view.state.doc.sliceString(lineFrom, lineTo)
-  const parsed = parseCommandLine(line)
+  let parsed = parseCommandLine(line)
+  if (!parsed && commandNameOverride) {
+    const prefixMatch = line.match(/^\s*([>\/])\s*/)
+    if (prefixMatch) {
+      parsed = {
+        prefix: prefixMatch[1],
+        name: commandNameOverride.toLowerCase(),
+        args: line.slice(prefixMatch[0].length).trim()
+      }
+    }
+  }
   if (!parsed) return
   const name = (commandNameOverride ?? parsed.name).toLowerCase()
-  const command = commands.find((c) => c.prefix === parsed.prefix && c.name === name)
+  const command = commands.find((c) => c.prefix === parsed!.prefix && c.name === name)
   if (!command) return
 
+  const toDelete = Math.min(lineTo + 1, view.state.doc.length)
+  view.dispatch({
+    changes: { from: lineFrom, to: toDelete, insert: '' },
+    selection: EditorSelection.cursor(lineFrom)
+  })
   const filePath = getCurrentFilePath()
   const fileContent = view.state.doc.toString()
   const insertResponse = (text: string) => {
@@ -73,13 +88,7 @@ export function executeCommandLine(
     })
   }
   const context: CommandContext = { view, filePath, fileContent, insertResponse }
-
-  Promise.resolve(command.execute(parsed.args, context)).then(() => {
-    view.dispatch({
-      changes: { from: lineFrom, to: Math.min(lineTo + 1, view.state.doc.length), insert: '' },
-      selection: EditorSelection.cursor(lineFrom)
-    })
-  })
+  Promise.resolve(command.execute(parsed.args, context))
 }
 
 export function editorCommandsExtension(_getCurrentFilePath: () => string | null) {

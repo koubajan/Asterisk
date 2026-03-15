@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  FolderOpen,
+  LayoutDashboard,
   FilePlus,
   Save,
   PanelLeft,
+  PanelLeftClose,
+  PanelRight,
   PanelRightClose,
   Check,
   X,
@@ -11,7 +13,8 @@ import {
   Download,
   FileText,
   FileCode,
-  Printer
+  Printer,
+  Sparkles
 } from 'lucide-react'
 import { marked } from 'marked'
 import { useWorkspace } from '../../store/useWorkspace'
@@ -74,7 +77,11 @@ function downloadBlob(content: string, filename: string, mimeType: string) {
   }, 100)
 }
 
-export default function TopBar() {
+interface TopBarProps {
+  onOpenAIPanel?: () => void
+}
+
+export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
   const { openFolder, createFile } = useFileOps()
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
   const workspaces = useWorkspace((s) => s.workspaces)
@@ -126,10 +133,10 @@ export default function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Open Folder */}
-      <button className="topbar-btn" onClick={openFolder} title="Open Folder (⌘⇧O)">
-        <FolderOpen size={13} strokeWidth={1.7} />
-        Open Folder
+      {/* Open workspace */}
+      <button className="topbar-btn" onClick={openFolder} title="Open workspace (⌘⇧O)">
+        <LayoutDashboard size={13} strokeWidth={1.7} />
+        Open workspace
       </button>
 
       {/* New file */}
@@ -171,7 +178,11 @@ export default function TopBar() {
 
       {/* Brand - Centered Absolutely */}
       <div className="topbar-brand">
-        <span className="topbar-brand-mark">✱</span>
+        <span className="topbar-brand-mark" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M12 3v18M3 12h18M5.64 5.64l12.72 12.72M18.36 5.64L5.64 18.36" />
+          </svg>
+        </span>
         <span className="topbar-brand-name">Asterisk</span>
       </div>
 
@@ -210,18 +221,28 @@ export default function TopBar() {
       <button
         className={`topbar-toggle ${sidebarVisible ? 'on' : ''}`}
         onClick={toggleSidebar}
-        title={`${sidebarVisible ? 'Hide' : 'Show'} Sidebar (⌘B)`}
+        title={`${sidebarVisible ? 'Hide' : 'Show'} Sidebar (⌘⇧B)`}
       >
-        <PanelLeft size={15} strokeWidth={1.6} />
+        {sidebarVisible ? <PanelLeft size={15} strokeWidth={1.6} /> : <PanelLeftClose size={15} strokeWidth={1.6} />}
       </button>
       <button
         className={`topbar-toggle ${previewVisible ? 'on' : ''}`}
         onClick={togglePreview}
         title={`${previewVisible ? 'Hide' : 'Show'} Preview`}
       >
-        <PanelRightClose size={15} strokeWidth={1.6} />
+        {previewVisible ? <PanelRight size={15} strokeWidth={1.6} /> : <PanelRightClose size={15} strokeWidth={1.6} />}
       </button>
 
+      {/* AI Assistant */}
+      {onOpenAIPanel && (
+        <button
+          className="topbar-toggle"
+          onClick={onOpenAIPanel}
+          title="AI Assistant"
+        >
+          <Sparkles size={15} strokeWidth={1.6} />
+        </button>
+      )}
       {/* Settings */}
       <button
         className="topbar-toggle"

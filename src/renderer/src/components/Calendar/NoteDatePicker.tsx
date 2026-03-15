@@ -1,0 +1,128 @@
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { format, parseISO } from 'date-fns'
+import { Calendar as CalendarIcon, X } from 'lucide-react'
+import { useWorkspace } from '../../store/useWorkspace'
+import './Calendar.css'
+
+interface NoteDatePickerProps {
+  filePath: string | null
+  onRefresh?: () => void
+}
+
+export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerProps) {
+  const noteSchedules = useWorkspace((s) => s.noteSchedules)
+  const setNoteDate = useWorkspace((s) => s.setNoteDate)
+  const loadScheduledNotes = useWorkspace((s) => s.loadScheduledNotes)
+
+  const scheduled = filePath ? noteSchedules[filePath] ?? null : null
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [localDate, setLocalDate] = useState(scheduled ? format(parseISO(scheduled), "yyyy-MM-dd'T'HH:mm") : '')
+  const [localTime, setLocalTime] = useState(scheduled ? format(parseISO(scheduled), 'HH:mm') : '12:00')
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    if (filePath) loadScheduledNotes()
+  }, [filePath, loadScheduledNotes])
+
+  useEffect(() => {
+    if (scheduled) {
+      try {
+        const d = parseISO(scheduled)
+        setLocalDate(format(d, "yyyy-MM-dd'T'HH:mm"))
+        setLocalTime(format(d, 'HH:mm'))
+      } catch {
+        setLocalDate('')
+        setLocalTime('12:00')
+      }
+    } else {
+      setLocalDate('')
+      setLocalTime('12:00')
+    }
+  }, [scheduled])
+
+  useLayoutEffect(() => {
+    if (!pickerOpen || !triggerRef.current) {
+      setDropdownRect(null)
+      return
+    }
+    const el = triggerRef.current
+    const rect = el.getBoundingClientRect()
+    setDropdownRect({ top: rect.bottom + 4, left: rect.left })
+  }, [pickerOpen])
+
+  if (!filePath || !filePath.endsWith('.md')) return null
+
+  async function handleSet() {
+    if (!filePath || !localDate.trim()) return
+    const iso = localDate.includes('T') ? localDate : `${localDate}T${localTime}:00`
+    await setNoteDate(filePath, iso)
+    await loadScheduledNotes()
+    onRefresh?.()
+    setPickerOpen(false)
+  }
+
+  async function handleClear() {
+    if (!filePath) return
+    await setNoteDate(filePath, null)
+    await loadScheduledNotes()
+    onRefresh?.()
+    setPickerOpen(false)
+  }
+
+  const scheduleTitle = scheduled
+    ? (() => {
+        try {
+          return `Scheduled: ${format(parseISO(scheduled), 'MMM d, yyyy · HH:mm')}`
+        } catch {
+          return 'Scheduled'
+        }
+      })()
+    : 'Schedule this note'
+
+  const dropdownContent =
+    pickerOpen &&
+    dropdownRect && (
+      <div
+        className="note-date-picker-dropdown note-date-picker-dropdown-portal"
+        style={{ top: dropdownRect.top, left: dropdownRect.left }}
+      >
+        <div className="note-date-picker-dropdown-inner">
+          <input
+            type="datetime-local"
+            className="note-date-picker-datetime"
+            value={localDate || undefined}
+            onChange={(e) => setLocalDate(e.target.value)}
+          />
+          <div className="note-date-picker-actions">
+            <button type="button" className="note-date-picker-btn" onClick={handleSet}>
+              Set
+            </button>
+            <button type="button" className="note-date-picker-clear" onClick={() => setPickerOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
+  return (
+    <div className="note-date-picker-wrap" ref={triggerRef}>
+      <button
+        type="button"
+        className="note-date-picker-btn note-date-picker-btn-icon"
+        onClick={() => setPickerOpen((v) => !v)}
+        title={scheduleTitle}
+      >
+        <CalendarIcon size={14} strokeWidth={1.7} />
+      </button>
+      {scheduled && (
+        <button type="button" className="note-date-picker-clear note-date-picker-clear-icon" onClick={handleClear} title="Clear schedule">
+          <X size={12} strokeWidth={2} />
+        </button>
+      )}
+      {dropdownContent && createPortal(dropdownContent, document.body)}
+    </div>
+  )
+}

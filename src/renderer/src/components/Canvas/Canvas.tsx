@@ -32,13 +32,33 @@ function resolvePath(workspacePath: string, relOrAbs: string): string {
   return baseParts.join('/')
 }
 
+function resolveFileNodePath(raw: string, workspacePath: string): string {
+  let r = raw.trim()
+  if (r.startsWith('file://')) {
+    try {
+      r = decodeURIComponent(
+        r.replace(/^file:\/\/+/i, '').replace(/^\/([A-Za-z]:)/, '$1')
+      ).replace(/\\/g, '/')
+    } catch {
+      return ''
+    }
+  }
+  if (!r) return ''
+  if (r.startsWith('/') || /^[A-Za-z]:[\\/]/.test(r)) return r.replace(/\\/g, '/')
+  if (workspacePath) return resolvePath(workspacePath, r)
+  return ''
+}
+
 const EDGE_DESELECT_DELAY_MS = 250
+
+const BOARD_CENTER = BOARD_SIZE / 2
 
 export default function Canvas() {
   const rootRef = useRef<HTMLDivElement>(null)
   const areaRef = useRef<HTMLDivElement>(null)
   const clearEdgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { data, updateNode, setViewport, addNode, addEdge, removeNode, updateEdge } = useArtifacts()
+  const centeredPathRef = useRef<string | null>(null)
+  const { data, updateNode, setViewport, addNode, addEdge, removeNode, updateEdge, undo, redo } = useArtifacts()
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useCanvas(areaRef)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [connectionFromId, setConnectionFromId] = useState<string | null>(null)
@@ -49,12 +69,80 @@ export default function Canvas() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null)
   const [selectionMode, setSelectionMode] = useState(false)
+  const [filePreviews, setFilePreviews] = useState<Record<string, { content: string } | { error: true }>>({})
+  const filePreviewsLoadingRef = useRef<Set<string>>(new Set())
   const { nodes, edges, viewport } = data
+  const canvasPath = useArtifacts((s) => s.canvasPath)
+  const workspacePath = useWorkspace((s) => s.workspaces[s.activeWorkspaceIndex]?.path ?? '')
+
+  // Load file contents for file nodes: cache by raw node.content so lookup in CanvasNode matches
+  useEffect(() => {
+    const fileNodes = nodes.filter(
+      (n): n is typeof n & { type: 'file'; content: string } => n.type === 'file' && Boolean(n.content.trim())
+    )
+    fileNodes.forEach((n) => {
+      const rawKey = n.content.trim()
+      if (filePreviews[rawKey] || filePreviewsLoadingRef.current.has(rawKey)) return
+      const resolvedPath = resolveFileNodePath(n.content, workspacePath)
+      if (!resolvedPath) {
+        setFilePreviews((prev) => ({ ...prev, [rawKey]: { error: true } }))
+        return
+      }
+      filePreviewsLoadingRef.current.add(rawKey)
+      window.asterisk.readFile(resolvedPath).then((r) => {
+        setFilePreviews((prev) => ({
+          ...prev,
+          [rawKey]: r.ok && r.data?.content != null ? { content: r.data.content } : { error: true }
+        }))
+        filePreviewsLoadingRef.current.delete(rawKey)
+      }).catch(() => {
+        setFilePreviews((prev) => ({ ...prev, [rawKey]: { error: true } }))
+        filePreviewsLoadingRef.current.delete(rawKey)
+      })
+    })
+  }, [nodes, workspacePath, filePreviews])
+
+  // Center view on grid center when opening an artifact
+  useEffect(() => {
+    if (!canvasPath) {
+      centeredPathRef.current = null
+      return
+    }
+    if (centeredPathRef.current === canvasPath) return
+    const el = areaRef.current
+    if (!el) return
+    const run = () => {
+      if (centeredPathRef.current === canvasPath) return
+      const { width, height } = el.getBoundingClientRect()
+      if (width === 0 && height === 0) return
+      centeredPathRef.current = canvasPath
+      setViewport({
+        x: -BOARD_CENTER + width / 2,
+        y: -BOARD_CENTER + height / 2,
+        zoom: 1
+      })
+    }
+    run()
+    const id = requestAnimationFrame(run)
+    return () => cancelAnimationFrame(id)
+  }, [canvasPath, setViewport])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target?.closest?.('input') || target?.closest?.('textarea')) return
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (mod && e.key === 'y') {
+        e.preventDefault()
+        redo()
+        return
+      }
       if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         setSelectionMode((prev) => !prev)
         return
@@ -73,12 +161,11 @@ export default function Canvas() {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [selectedIds, nodes, removeNode])
+  }, [selectedIds, nodes, removeNode, undo, redo])
 
   const openFiles = useWorkspace((s) => s.openFiles)
   const activeFileIndex = useWorkspace((s) => s.activeFileIndex)
   const closeTab = useWorkspace((s) => s.closeTab)
-  const workspacePath = useWorkspace((s) => s.workspaces[s.activeWorkspaceIndex]?.path ?? '')
   const openFile = openFiles[activeFileIndex] ?? null
   const artifactName = openFile?.name ?? 'Artifact'
 
@@ -416,15 +503,17 @@ export default function Canvas() {
     (e: React.DragEvent) => {
       e.preventDefault()
       let filePath: string | null = null
-      const plain = e.dataTransfer.getData('text/plain')
-      const match = plain && /^\[([^\]]*)\]\((.*)\)$/.exec(plain)
-      if (match) {
-        filePath = resolvePath(workspacePath, match[2].trim())
+      const treePath = e.dataTransfer.getData('application/x-asterisk-tree-path')
+      if (treePath) {
+        filePath = treePath.startsWith('/') || /^[A-Za-z]:/.test(treePath) ? treePath : resolvePath(workspacePath, treePath)
       } else if (e.dataTransfer.files?.length) {
         filePath = getDroppedFilePath(e)
       } else {
-        const treePath = e.dataTransfer.getData('application/x-asterisk-tree-path')
-        if (treePath) filePath = treePath.startsWith('/') || /^[A-Za-z]:/.test(treePath) ? treePath : resolvePath(workspacePath, treePath)
+        const plain = e.dataTransfer.getData('text/plain')
+        const match = plain && /^\[([^\]]*)\]\((.*)\)$/.exec(plain)
+        if (match) {
+          filePath = resolvePath(workspacePath, match[2].trim())
+        }
       }
       if (!filePath) return
       const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'))
@@ -540,11 +629,17 @@ export default function Canvas() {
             />
           )}
           <div className="canvas-nodes-layer" style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
-            {nodes.filter((n) => n.type !== 'group').map((node) => (
+            {nodes.filter((n) => n.type !== 'group').map((node) => {
+              const rawKey = node.type === 'file' && node.content ? node.content.trim() : ''
+              const preview = rawKey ? filePreviews[rawKey] : undefined
+              const fileError = rawKey ? Boolean(preview && 'error' in preview) : Boolean(node.type === 'file' && node.content)
+              return (
               <CanvasNode
                 key={node.id}
                 node={node}
                 workspacePath={workspacePath}
+                filePreviewContent={preview && 'content' in preview ? preview.content : undefined}
+                filePreviewError={fileError}
                 onDrag={(dx, dy) => handleNodeDrag(node.id, dx, dy)}
                 onDragEnd={() => handleNodeDragEnd(node.id)}
                 onSelect={(addToSelection) => handleNodeSelect(node.id, addToSelection ?? false)}
@@ -562,7 +657,7 @@ export default function Canvas() {
                 }}
                 connectionMode={connectionMode}
               />
-            ))}
+            )})}
           </div>
           <svg
             className="canvas-edges-layer canvas-edges-layer-on-top"

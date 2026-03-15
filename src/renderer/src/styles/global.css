@@ -22,6 +22,11 @@
   --radius:    6px;
   --radius-lg: 10px;
 
+  --transition-fast:   0.12s ease;
+  --transition-normal: 0.2s ease;
+  --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-expo: 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
   --topbar-height:   44px;
   --statusbar-height: 24px;
   --sidebar-width:   256px;
@@ -97,4 +102,14 @@ input {
 
 input:focus {
   border-color: var(--accent);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }

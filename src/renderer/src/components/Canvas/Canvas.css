@@ -1,3 +1,5 @@
+@import 'highlight.js/styles/atom-one-dark.css';
+
 .canvas-root {
   flex: 1;
   min-height: 0;
@@ -364,14 +366,15 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  padding: 6px;
+  padding: 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(4, 18px);
+  gap: 6px;
+  width: max-content;
 }
 
 .canvas-group-color-picker-floating {
@@ -381,7 +384,7 @@
   border: 1px solid var(--border) !important;
   background: var(--bg-elevated) !important;
   display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
+  grid-template-columns: repeat(4, 18px) !important;
   gap: 6px !important;
   width: max-content !important;
 }
@@ -392,6 +395,7 @@
   min-width: 18px !important;
   min-height: 18px !important;
   border-radius: 4px !important;
+  box-sizing: border-box !important;
 }
 
 .canvas-group-color-picker-floating .canvas-group-color-reset {
@@ -403,21 +407,28 @@
 .canvas-group-color-swatch {
   width: 18px;
   height: 18px;
+  min-width: 18px;
+  min-height: 18px;
   border-radius: 4px;
   border: 1px solid var(--border);
   cursor: pointer;
   padding: 0;
+  box-sizing: border-box;
 }
 
 .canvas-group-color-reset {
   grid-column: 1 / -1;
   font-size: 11px;
-  padding: 4px;
+  padding: 4px 8px;
   cursor: pointer;
   background: var(--bg-hover);
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
+}
+
+.canvas-group-color-reset:hover {
+  color: var(--accent);
 }
 
 .canvas-group-resize-handle {
@@ -674,7 +685,33 @@
 .canvas-node-markdown a { color: var(--accent); text-decoration: none; }
 .canvas-node-markdown a:hover { text-decoration: underline; }
 .canvas-node-markdown strong { font-weight: 600; }
-.canvas-node-markdown.canvas-node-preview { font-size: 11px; color: var(--text-muted); max-height: 80px; overflow: hidden; }
+/* Tables — match preview pane */
+.canvas-node-markdown table,
+.canvas-node-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 12px;
+}
+.canvas-node-markdown th,
+.canvas-node-preview th {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+}
+.canvas-node-markdown td,
+.canvas-node-preview td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+}
+.canvas-node-markdown tr:nth-child(even) td,
+.canvas-node-preview tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.canvas-node-markdown.canvas-node-preview { font-size: 11px; color: var(--text-muted); }
 
 .canvas-node-edit {
   width: 100%;
@@ -714,8 +751,19 @@
   color: var(--text-muted);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 80px;
-  overflow: hidden;
+  min-height: 24px;
+}
+
+.canvas-node-preview-loading {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.canvas-node-preview-error {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
 }
 
 .canvas-node-image img {
@@ -793,4 +841,69 @@
 
 .canvas-node-link-url:hover {
   text-decoration: underline;
+}
+
+/* Code / YAML preview (highlight.js) */
+.canvas-node-code-preview {
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: #282c34;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.canvas-node-code-preview pre {
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.canvas-node-code-preview code {
+  font-family: var(--font-mono);
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+/* CSV table preview */
+.canvas-node-csv-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 4px;
+}
+
+.canvas-node-csv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.canvas-node-csv-table td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-node-csv-table tr:first-child td {
+  font-weight: 600;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* Plain text file preview */
+.canvas-node-plain-preview {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
 }

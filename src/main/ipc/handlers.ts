@@ -1,7 +1,8 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs/promises'
-import { buildTree, safeReadFile, safeWriteFile, safeDeleteItem, searchContentInFolder } from './fileSystem'
+import { buildTree, safeReadFile, safeWriteFile, safeDeleteItem, searchContentInFolder, getScheduledNotesInFolder } from './fileSystem'
+import { sendAIChat } from './ai'
 import type { IpcResult, FolderNode } from '../../preload/types'
 
 /** Detect image MIME from buffer magic bytes (avoids extension/PNG issues). */
@@ -48,9 +49,11 @@ export function registerIpcHandlers(): void {
 
   // ── Read File ──────────────────────────────────────────────────────────────
   ipcMain.handle('fs:read-file', (_e, filePath: string) =>
-    wrap(async () => ({
-      content: await safeReadFile(filePath)
-    }))
+    wrap(async () => {
+      const p = String(filePath).trim()
+      const normalized = p.includes('..') || p.includes('\\') ? path.normalize(p) : p
+      return { content: await safeReadFile(normalized) }
+    })
   )
 
   // ── Write File ─────────────────────────────────────────────────────────────
@@ -76,10 +79,14 @@ export function registerIpcHandlers(): void {
   )
 
   // ── Create Canvas (artifact) file ─────────────────────────────────────────
-  ipcMain.handle('fs:create-canvas', (_e, dirPath: string, name: string) =>
+  // Creates in workspaceRoot/Artifacts/; ensures Artifacts folder exists.
+  const ARTIFACTS_FOLDER_NAME = 'Artifacts'
+  ipcMain.handle('fs:create-canvas', (_e, workspaceRootPath: string, name: string) =>
     wrap(async () => {
+      const artifactsDir = path.join(workspaceRootPath, ARTIFACTS_FOLDER_NAME)
+      await fs.mkdir(artifactsDir, { recursive: true })
       const safeName = name.endsWith('.artifact') ? name : `${name}.artifact`
-      const fullPath = path.join(dirPath, safeName)
+      const fullPath = path.join(artifactsDir, safeName)
       const defaultContent = JSON.stringify(
         { version: 1, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
         null,
@@ -147,6 +154,16 @@ export function registerIpcHandlers(): void {
   // ── Search file content ───────────────────────────────────────────────────
   ipcMain.handle('fs:search-content', (_e, folderPath: string, query: string) =>
     wrap(async () => ({ matches: await searchContentInFolder(folderPath, query) }))
+  )
+
+  // ── Get scheduled notes (frontmatter scheduled: field) ─────────────────────
+  ipcMain.handle('fs:get-scheduled-notes', (_e, folderPath: string) =>
+    wrap(async () => ({ notes: await getScheduledNotesInFolder(folderPath) }))
+  )
+
+  // ── AI Chat ─────────────────────────────────────────────────────────────────
+  ipcMain.handle('ai:chat', (_e, req: { provider: string; apiKey: string; messages: { role: string; content: string }[]; fileContext?: string }) =>
+    wrap(() => sendAIChat(req as Parameters<typeof sendAIChat>[0]).then((content) => ({ content })))
   )
 
   // ── Read image as data URL (for canvas image nodes) ─────────────────────────

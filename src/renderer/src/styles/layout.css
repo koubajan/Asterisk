@@ -23,7 +23,13 @@
   flex-direction: row;
 }
 
-.workspace-editor-wrap,
+.workspace-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .workspace-preview-wrap {
   display: flex;
   flex-direction: column;
@@ -49,5 +55,25 @@
 }
 
 .workspace-resizer:hover {
+  background: var(--accent-dim);
+}
+
+.workspace-ai-wrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-ai-resizer {
+  width: 6px;
+  flex-shrink: 0;
+  background: var(--border-subtle);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.workspace-ai-resizer:hover {
   background: var(--accent-dim);
 }

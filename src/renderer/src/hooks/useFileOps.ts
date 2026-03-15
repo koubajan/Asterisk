@@ -3,7 +3,7 @@ import { useWorkspace } from '../store/useWorkspace'
 export function useFileOps() {
   const { 
     workspaces, activeWorkspaceIndex, 
-    addWorkspace, setTree, openFileNode, setError 
+    addWorkspace, setTree, openFileNode, setError, updateFilePathInWorkspace 
   } = useWorkspace()
 
   const activeWorkspace = workspaces[activeWorkspaceIndex]
@@ -79,8 +79,10 @@ export function useFileOps() {
       setError(result.error ?? 'Failed to move item')
       return null
     }
+    const newPath = result.data?.newPath
+    if (newPath) updateFilePathInWorkspace(fromPath, newPath)
     await refreshTree()
-    return result.data?.newPath ?? null
+    return newPath ?? null
   }
 
   return { folderPath, openFolder, refreshTree, createFile, createFolder, deleteItem, renameItem, moveItem }

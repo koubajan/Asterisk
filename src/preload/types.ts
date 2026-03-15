@@ -35,6 +35,24 @@ export interface ContentSearchMatch {
   snippets: string[]
 }
 
+export interface ScheduledNote {
+  path: string
+  scheduled: string
+}
+
+export interface AIMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+export interface AIChatRequest {
+  provider: 'openai' | 'anthropic' | 'gemini'
+  apiKey: string
+  model?: string
+  messages: AIMessage[]
+  fileContext?: string
+}
+
 export interface AsteriskAPI {
   openFolderDialog(): Promise<IpcResult<{ path: string; tree: FolderNode[] }>>
   readFile(filePath: string): Promise<IpcResult<{ content: string }>>
@@ -47,6 +65,8 @@ export interface AsteriskAPI {
   moveItem(fromPath: string, toDirPath: string): Promise<IpcResult<{ newPath: string }>>
   listDir(dirPath: string): Promise<IpcResult<{ nodes: FolderNode[] }>>
   searchContent(folderPath: string, query: string): Promise<IpcResult<{ matches: ContentSearchMatch[] }>>
+  getScheduledNotes(folderPath: string): Promise<IpcResult<{ notes: ScheduledNote[] }>>
+  aiChat(req: AIChatRequest): Promise<IpcResult<{ content: string }>>
   readImageAsDataUrl(filePath: string): Promise<IpcResult<{ dataUrl: string }>>
   onFolderChange(callback: (tree: FolderNode[]) => void): () => void
 }

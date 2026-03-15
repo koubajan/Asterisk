@@ -99,9 +99,10 @@ export async function searchContentInFolder(
   const tree = await buildTree(folderPath)
   const paths: string[] = []
   collectFilePaths(tree, paths)
+  const searchPaths = paths.filter((p) => !p.endsWith('.artifact'))
   const results: ContentMatch[] = []
   const q = query.trim().toLowerCase()
-  for (const filePath of paths) {
+  for (const filePath of searchPaths) {
     try {
       const stat = await fs.stat(filePath)
       if (stat.size > MAX_FILE_SIZE) continue
@@ -110,6 +111,42 @@ export async function searchContentInFolder(
       if (snippets.length > 0) results.push({ path: filePath, snippets })
     } catch {
       // skip unreadable files
+    }
+  }
+  return results
+}
+
+const FRONTMATTER_HEAD = /^\s*---\s*\n/
+const SCHEDULED_RE = /^\s*scheduled:\s*["']?([^"'\s\n]+(?:T[^"'\s\n]*)?)["']?\s*$/m
+
+export interface ScheduledNote {
+  path: string
+  scheduled: string
+}
+
+function extractScheduledFromFrontmatter(content: string): string | null {
+  const head = content.match(FRONTMATTER_HEAD)
+  if (!head) return null
+  const start = head.index! + head[0].length
+  const end = content.indexOf('\n---', start)
+  const block = end >= 0 ? content.slice(start, end) : content.slice(start, start + 1500)
+  const m = block.match(SCHEDULED_RE)
+  return m ? m[1].trim() : null
+}
+
+export async function getScheduledNotesInFolder(folderPath: string): Promise<ScheduledNote[]> {
+  const tree = await buildTree(folderPath)
+  const paths: string[] = []
+  collectFilePaths(tree, paths)
+  const mdPaths = paths.filter((p) => /\.(md|markdown)$/i.test(p))
+  const results: ScheduledNote[] = []
+  for (const filePath of mdPaths) {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8')
+      const scheduled = extractScheduledFromFrontmatter(content.slice(0, 2048))
+      if (scheduled) results.push({ path: filePath, scheduled })
+    } catch {
+      // skip
     }
   }
   return results
