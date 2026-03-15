@@ -1,5 +1,15 @@
 # Asterisk
 
+<div align="center">
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Electron](https://img.shields.io/badge/Electron-34-47848F?logo=electron)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite)
+
+</div>
+
 A dark-themed **Markdown note editor** for desktop with canvas artifacts, AI assistant, and calendar. Built with Electron and React for a fast, local-first workflow.
 
 ---
