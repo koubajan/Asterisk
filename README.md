@@ -12,6 +12,8 @@
 
 A **Markdown note editor** for desktop with canvas artifacts, Excalidraw drawings, AI assistant, version history, and calendar. Built with Electron and React for a fast, local-first workflow.
 
+**THIS PROJECT IS NOT FINISHED AND THERE'S A HIGH CHANCE THAT YOU WILL ENCOUTER BUGS.**
+
 ---
 
 ## Overview
