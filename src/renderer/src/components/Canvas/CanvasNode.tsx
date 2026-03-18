@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
+import { Excalidraw, THEME } from '@excalidraw/excalidraw'
 import type { CanvasNode as CanvasNodeType } from '../../types/canvas'
 import { asteriskFileUrl } from '../../utils/imageUrl'
+import { useSettings, PRESET_THEMES } from '../../store/useSettings'
 
 /** File preview type for artifact file nodes */
-type FilePreviewType = 'markdown' | 'code' | 'csv' | 'yaml' | 'plain' | 'error' | null
+type FilePreviewType = 'markdown' | 'code' | 'csv' | 'yaml' | 'plain' | 'excalidraw' | 'error' | null
 
 const CODE_EXTENSIONS: Record<string, string> = {
   js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
@@ -20,6 +22,7 @@ const CSV_RE = /\.csv$/i
 const YAML_RE = /\.(yaml|yml)$/i
 const MARKDOWN_RE = /\.(md|markdown|txt)$/i
 const PDF_RE = /\.pdf$/i
+const EXCALIDRAW_RE = /\.excalidraw$/i
 
 interface CanvasNodeProps {
   node: CanvasNodeType
@@ -154,6 +157,66 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
   const lastResizedForPreviewRef = useRef<string | null>(null)
+  
+  const { activeThemeId, customThemes } = useSettings()
+  const allThemes = [...PRESET_THEMES, ...customThemes]
+  const activeTheme = allThemes.find((t) => t.id === activeThemeId) || PRESET_THEMES[0]
+  const isDarkTheme = activeTheme.colors.bgBase === '#000000' || activeTheme.colors.bgBase < '#333333'
+  
+  const excalidrawData = useMemo(() => {
+    if (filePreviewType !== 'excalidraw' || !filePreview) return null
+    try {
+      const parsed = JSON.parse(filePreview)
+      const elements = parsed.elements || []
+      
+      let scrollX = 0
+      let scrollY = 0
+      let zoom = 1
+      
+      if (elements.length > 0) {
+        const xs = elements.map((e: any) => e.x || 0)
+        const ys = elements.map((e: any) => e.y || 0)
+        const widths = elements.map((e: any) => (e.x || 0) + (e.width || 100))
+        const heights = elements.map((e: any) => (e.y || 0) + (e.height || 100))
+        
+        const minX = Math.min(...xs)
+        const minY = Math.min(...ys)
+        const maxX = Math.max(...widths)
+        const maxY = Math.max(...heights)
+        
+        const contentWidth = maxX - minX + 40
+        const contentHeight = maxY - minY + 40
+        
+        const availWidth = node.width - 24
+        const availHeight = node.height - 52
+        
+        const scaleX = availWidth / contentWidth
+        const scaleY = availHeight / contentHeight
+        zoom = Math.min(scaleX, scaleY, 1) * 0.9
+        
+        const centerX = (minX + maxX) / 2
+        const centerY = (minY + maxY) / 2
+        scrollX = -centerX + availWidth / (2 * zoom)
+        scrollY = -centerY + availHeight / (2 * zoom)
+      }
+      
+      return {
+        elements,
+        appState: {
+          viewBackgroundColor: 'transparent',
+          ...(parsed.appState || {}),
+          collaborators: new Map(),
+          zoom: { value: zoom },
+          scrollX,
+          scrollY,
+        },
+        files: parsed.files || {},
+        scrollToContent: true,
+      }
+    } catch {
+      return null
+    }
+  }, [filePreviewType, filePreview, node.width, node.height])
   const imageSizedForRef = useRef<string | null>(null)
 
   useLayoutEffect(() => {
@@ -217,6 +280,11 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
       if (PDF_RE.test(path)) {
         setFilePreview(null)
         setFilePreviewType('plain')
+        return
+      }
+      if (EXCALIDRAW_RE.test(path)) {
+        setFilePreviewType('excalidraw')
+        setFilePreview(filePreviewContent)
         return
       }
       if (CSV_RE.test(path)) {
@@ -664,6 +732,32 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
                 title="PDF"
                 src={`${asteriskFileUrl(resolveFilePath(workspacePath, node.content ?? ''))}#toolbar=0`}
                 className="canvas-node-pdf"
+              />
+            </div>
+          ) : filePreviewType === 'excalidraw' && excalidrawData ? (
+            <div 
+              className="canvas-node-excalidraw-wrap" 
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ height: node.height - 52 }}
+            >
+              <Excalidraw
+                key={`${node.id}-${node.width}-${node.height}`}
+                initialData={excalidrawData}
+                theme={isDarkTheme ? THEME.DARK : THEME.LIGHT}
+                viewModeEnabled={true}
+                zenModeEnabled={true}
+                gridModeEnabled={false}
+                UIOptions={{
+                  canvasActions: {
+                    loadScene: false,
+                    export: false,
+                    saveAsImage: false,
+                    saveToActiveFile: false,
+                    clearCanvas: false,
+                    changeViewBackgroundColor: false,
+                  },
+                  tools: { image: false },
+                }}
               />
             </div>
           ) : (

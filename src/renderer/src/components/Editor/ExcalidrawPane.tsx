@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { Excalidraw, THEME } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { useSettings, PRESET_THEMES } from '../../store/useSettings'
+import { useWorkspace } from '../../store/useWorkspace'
 import './ExcalidrawPane.css'
 
 interface ExcalidrawPaneProps {
@@ -27,10 +28,16 @@ function parseExcalidrawData(json: string) {
 
 export default function ExcalidrawPane({ filePath, initialContent }: ExcalidrawPaneProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const filePathRef = useRef(filePath)
   const isFirstChangeRef = useRef(true)
-
-  filePathRef.current = filePath
+  const pendingDataRef = useRef<{ path: string; data: string } | null>(null)
+  
+  const updateOpenFileContent = useCallback((path: string, content: string) => {
+    useWorkspace.setState((s) => ({
+      openFiles: s.openFiles.map((f) => 
+        f.path === path ? { ...f, content, isDirty: false } : f
+      )
+    }))
+  }, [])
 
   const { activeThemeId, customThemes } = useSettings()
   const allThemes = [...PRESET_THEMES, ...customThemes]
@@ -48,39 +55,76 @@ export default function ExcalidrawPane({ filePath, initialContent }: ExcalidrawP
         isFirstChangeRef.current = false
         return
       }
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(() => {
-        const data = JSON.stringify(
-          {
-            type: 'excalidraw',
-            version: 2,
-            source: 'asterisk',
-            elements: elements.filter((el: any) => !el.isDeleted),
-            appState: {
-              viewBackgroundColor: appState.viewBackgroundColor,
-              gridSize: appState.gridSize ?? null,
-            },
-            files: files || {},
+      
+      const data = JSON.stringify(
+        {
+          type: 'excalidraw',
+          version: 2,
+          source: 'asterisk',
+          elements: elements.filter((el: any) => !el.isDeleted),
+          appState: {
+            viewBackgroundColor: appState.viewBackgroundColor,
+            gridSize: appState.gridSize ?? null,
           },
-          null,
-          2
-        )
-        window.asterisk.writeFile(filePathRef.current, data)
+          files: files || {},
+        },
+        null,
+        2
+      )
+      
+      pendingDataRef.current = { path: filePath, data }
+      
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(async () => {
+        if (pendingDataRef.current) {
+          const { path, data } = pendingDataRef.current
+          const result = await window.asterisk.writeFile(path, data)
+          if (result.ok) {
+            updateOpenFileContent(path, data)
+          }
+          pendingDataRef.current = null
+        }
       }, 500)
     },
-    []
+    [filePath, updateOpenFileContent]
   )
 
-  // Reset the first-change guard when switching files
+  // Save pending changes immediately when switching files or unmounting
   useEffect(() => {
+    // Save any pending data for the PREVIOUS file before resetting
+    if (pendingDataRef.current && pendingDataRef.current.path !== filePath) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      const { path, data } = pendingDataRef.current
+      window.asterisk.writeFile(path, data).then((result) => {
+        if (result.ok) {
+          updateOpenFileContent(path, data)
+        }
+      })
+      pendingDataRef.current = null
+    }
+    
     isFirstChangeRef.current = true
+    
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
+      // Save any pending changes immediately when unmounting
+      if (pendingDataRef.current) {
+        const { path, data } = pendingDataRef.current
+        window.asterisk.writeFile(path, data).then((result) => {
+          if (result.ok) {
+            updateOpenFileContent(path, data)
+          }
+        })
+        pendingDataRef.current = null
+      }
     }
-  }, [filePath])
+  }, [filePath, updateOpenFileContent])
 
   return (
     <div className="excalidraw-pane">

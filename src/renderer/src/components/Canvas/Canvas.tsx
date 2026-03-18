@@ -607,6 +607,35 @@ export default function Canvas() {
     await exportCanvasAsImage(nodes, edges, defaultName)
   }, [nodes, edges, artifactName])
 
+  const handleFitToNodes = useCallback(() => {
+    const el = areaRef.current
+    if (!el || nodes.length === 0) return
+    const rect = el.getBoundingClientRect()
+    const { width, height } = rect
+    if (width === 0 || height === 0) return
+
+    const minX = Math.min(...nodes.map((n) => n.x))
+    const minY = Math.min(...nodes.map((n) => n.y))
+    const maxX = Math.max(...nodes.map((n) => n.x + n.width))
+    const maxY = Math.max(...nodes.map((n) => n.y + n.height))
+
+    const nodesWidth = maxX - minX
+    const nodesHeight = maxY - minY
+    if (nodesWidth === 0 || nodesHeight === 0) return
+
+    const padding = 60
+    const scaleX = (width - padding * 2) / nodesWidth
+    const scaleY = (height - padding * 2) / nodesHeight
+    const zoom = Math.min(Math.max(scaleX, scaleY, ZOOM_MIN), ZOOM_MAX, 1.5)
+
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    const x = width / 2 - centerX * zoom
+    const y = height / 2 - centerY * zoom
+
+    setViewport({ x, y, zoom })
+  }, [nodes, setViewport])
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
@@ -748,7 +777,7 @@ export default function Canvas() {
           onAddLink={handleAddLinkAtViewportCenter}
           onZoomIn={() => handleZoom(ZOOM_STEP)}
           onZoomOut={() => handleZoom(-ZOOM_STEP)}
-          onZoomReset={() => setViewport({ zoom: 1, x: 0, y: 0 })}
+          onZoomReset={handleFitToNodes}
           connectionMode={connectionMode}
           onConnectionModeToggle={() => setConnectionMode((m) => !m)}
           canAlign={canAlign}

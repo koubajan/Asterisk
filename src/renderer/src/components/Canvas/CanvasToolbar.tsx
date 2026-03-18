@@ -114,7 +114,7 @@ export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOu
       <button type="button" className="canvas-toolbar-btn" onClick={onZoomOut} title="Zoom out"><ZoomOut size={16} /></button>
       <span className="canvas-toolbar-zoom">{Math.round(data.viewport.zoom * 100)}%</span>
       <button type="button" className="canvas-toolbar-btn" onClick={onZoomIn} title="Zoom in"><ZoomIn size={16} /></button>
-      <button type="button" className="canvas-toolbar-btn" onClick={onZoomReset} title="Reset zoom"><Maximize2 size={16} /></button>
+      <button type="button" className="canvas-toolbar-btn" onClick={onZoomReset} title="Fit all nodes in view"><Maximize2 size={16} /></button>
       {onExport && (
         <>
           <span className="canvas-toolbar-sep" />
