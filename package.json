@@ -1,11 +1,11 @@
 {
   "name": "asterisk",
   "productName": "Asterisk",
-  "version": "0.1.0",
+  "version": "1.4.6",
   "description": "A dark Markdown note editor",
   "main": "./out/main/index.js",
   "author": "Jan Kouba",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "build": {
     "appId": "com.asterisk.app",
     "directories": {
@@ -17,13 +17,13 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "resources/icon.png"
+      "icon": "resources/macos_icon.icns"
     },
     "win": {
-      "icon": "resources/icon.png"
+      "icon": "resources/windows_icon.ico"
     },
     "linux": {
-      "icon": "resources/icon.png"
+      "icon": "resources/linux_icon.png"
     }
   },
   "scripts": {

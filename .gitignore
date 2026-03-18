@@ -47,6 +47,9 @@ lerna-debug.log*
 *.swo
 *~
 
+# Cursor
+.cursor/
+
 # OS files
 .DS_Store
 .DS_Store?
@@ -69,3 +72,6 @@ Thumbs.db
 
 # Optional eslint cache
 .eslintcache
+
+# Asterisk app data (created in workspaces)
+.history/

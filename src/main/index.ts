@@ -10,11 +10,33 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'asterisk-file', privileges: { s
 const isDev = !app.isPackaged
 
 function getIconPath(): string | undefined {
-  const candidates = [
-    join(app.getAppPath(), 'resources', 'icon.png'),
-    join(__dirname, '..', '..', 'resources', 'icon.png')
+  // Platform-specific icon names
+  const platformIcons = process.platform === 'darwin' 
+    ? ['macos_icon.icns', 'linux_icon.png'] // .icns for mac, fallback to png
+    : process.platform === 'win32' 
+      ? ['windows_icon.ico', 'linux_icon.png']
+      : ['linux_icon.png']
+  
+  const basePaths = [
+    process.cwd(),  // Dev: project root
+    join(app.getAppPath(), '..'),  // Production: resources next to app
+    app.getAppPath(),
+    join(__dirname, '..', '..'),
+    join(__dirname, '..', '..', '..')
   ]
-  return candidates.find((p) => existsSync(p))
+  
+  for (const iconName of platformIcons) {
+    for (const basePath of basePaths) {
+      const fullPath = join(basePath, 'resources', iconName)
+      if (existsSync(fullPath)) {
+        if (isDev) console.log('Icon found:', fullPath)
+        return fullPath
+      }
+    }
+  }
+  
+  if (isDev) console.log('No icon found in:', basePaths.map(b => join(b, 'resources')))
+  return undefined
 }
 
 function createWindow(): BrowserWindow {
@@ -61,9 +83,16 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   const iconPath = getIconPath()
-  if (iconPath && process.platform === 'darwin') {
+  if (iconPath) {
     const iconImage = nativeImage.createFromPath(iconPath)
-    if (!iconImage.isEmpty()) app.dock.setIcon(iconImage)
+    if (isDev) {
+      console.log('Icon path:', iconPath)
+      console.log('Icon isEmpty:', iconImage.isEmpty())
+      console.log('Icon size:', iconImage.getSize())
+    }
+    if (process.platform === 'darwin' && !iconImage.isEmpty()) {
+      app.dock.setIcon(iconImage)
+    }
   }
 
   registerIpcHandlers()
