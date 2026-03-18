@@ -13,11 +13,15 @@ export interface FolderNode {
 
 // ─── Open Editor File ───────────────────────────────────────────────────────
 
+export type FileType = 'text' | 'image' | 'binary'
+
 export interface EditorFile {
   path: string
   name: string
   content: string
   isDirty: boolean
+  fileType?: FileType
+  dataUrl?: string
 }
 
 // ─── IPC Result Envelope ────────────────────────────────────────────────────
@@ -59,6 +63,7 @@ export interface AsteriskAPI {
   writeFile(filePath: string, content: string): Promise<IpcResult>
   createFile(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
   createCanvas(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
+  createExcalidraw(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
   createFolder(dirPath: string, name: string): Promise<IpcResult<{ node: FolderNode }>>
   deleteItem(itemPath: string): Promise<IpcResult>
   renameItem(oldPath: string, newName: string): Promise<IpcResult<{ newPath: string }>>
@@ -68,6 +73,9 @@ export interface AsteriskAPI {
   getScheduledNotes(folderPath: string): Promise<IpcResult<{ notes: ScheduledNote[] }>>
   aiChat(req: AIChatRequest): Promise<IpcResult<{ content: string }>>
   readImageAsDataUrl(filePath: string): Promise<IpcResult<{ dataUrl: string }>>
+  fetchUrlText(url: string): Promise<IpcResult<{ text: string }>>
+  fetchImageDataUrl(imageUrl: string): Promise<IpcResult<{ dataUrl: string }>>
+  openExternalUrl(url: string): Promise<IpcResult>
   onFolderChange(callback: (tree: FolderNode[]) => void): () => void
 }
 

@@ -24,6 +24,11 @@ export const AI_MODELS: Record<AIProvider, { id: string; label: string }[]> = {
   ]
 }
 
+export interface PendingPromptOptions {
+  /** When true, include current .md file and ask AI to reply with revised markdown in a code block for easy Apply. */
+  applyFriendly?: boolean
+}
+
 interface AIChatState {
   messages: AIMessage[]
   loading: boolean
@@ -31,12 +36,13 @@ interface AIChatState {
   provider: AIProvider
   model: string
   pendingPrompt: string | null
+  pendingPromptApplyFriendly: boolean
   setProvider: (p: AIProvider) => void
   setModel: (m: string) => void
   sendMessage: (content: string, fileContext?: string) => Promise<void>
   clearMessages: () => void
   setError: (err: string | null) => void
-  setPendingPrompt: (p: string | null) => void
+  setPendingPrompt: (p: string | null, options?: PendingPromptOptions) => void
 }
 
 export const useAIChat = create<AIChatState>((set, get) => ({
@@ -46,6 +52,7 @@ export const useAIChat = create<AIChatState>((set, get) => ({
   provider: 'openai',
   model: 'gpt-5-mini',
   pendingPrompt: null,
+  pendingPromptApplyFriendly: false,
 
   setProvider: (provider) => {
     const models = AI_MODELS[provider] ?? []
@@ -95,5 +102,9 @@ export const useAIChat = create<AIChatState>((set, get) => ({
 
   clearMessages: () => set({ messages: [], error: null }),
   setError: (error) => set({ error }),
-  setPendingPrompt: (pendingPrompt) => set({ pendingPrompt })
+  setPendingPrompt: (p, options) =>
+    set({
+      pendingPrompt: p,
+      pendingPromptApplyFriendly: p != null && options?.applyFriendly === true
+    })
 }))

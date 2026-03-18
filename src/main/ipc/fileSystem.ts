@@ -2,7 +2,31 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import type { FolderNode } from '../../preload/types'
 
-const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.markdown', '.artifact'])
+const ALLOWED_EXTENSIONS = new Set([
+  // Markdown/text
+  '.md', '.txt', '.markdown',
+  // Artifact
+  '.artifact',
+  // Excalidraw
+  '.excalidraw',
+  // Images
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
+  // Documents
+  '.pdf', '.docx', '.doc', '.odt', '.rtf',
+  // Spreadsheets
+  '.xlsx', '.xls', '.csv', '.ods',
+  // Presentations
+  '.pptx', '.ppt', '.odp',
+  // Code files
+  '.js', '.ts', '.jsx', '.tsx', '.py', '.rb', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.go', '.rs', '.swift', '.kt',
+  '.html', '.htm', '.css', '.scss', '.sass', '.less', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.conf', '.sh', '.bash', '.zsh',
+  // Data
+  '.sql', '.db', '.sqlite',
+  // Archives
+  '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar',
+  // Other
+  '.log', '.mdx'
+])
 
 export async function buildTree(dirPath: string, depth = 0): Promise<FolderNode[]> {
   let entries: import('fs').Dirent[]
@@ -99,7 +123,7 @@ export async function searchContentInFolder(
   const tree = await buildTree(folderPath)
   const paths: string[] = []
   collectFilePaths(tree, paths)
-  const searchPaths = paths.filter((p) => !p.endsWith('.artifact'))
+  const searchPaths = paths.filter((p) => /\.(md|markdown)$/i.test(p))
   const results: ContentMatch[] = []
   const q = query.trim().toLowerCase()
   for (const filePath of searchPaths) {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, SquareStack } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import './EditorTabs.css'
 
@@ -8,6 +8,7 @@ export default function EditorTabs() {
   const activeFileIndex = useWorkspace((s) => s.activeFileIndex)
   const setActiveFileIndex = useWorkspace((s) => s.setActiveFileIndex)
   const closeTab = useWorkspace((s) => s.closeTab)
+  const closeAllTabs = useWorkspace((s) => s.closeAllTabs)
   const reorderOpenFiles = useWorkspace((s) => s.reorderOpenFiles)
   const tabListRef = useRef<HTMLDivElement>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -37,6 +38,7 @@ export default function EditorTabs() {
   }
 
   function handleDragOver(e: React.DragEvent, index: number) {
+    if (!e.dataTransfer.types.includes('application/x-editor-tab-index')) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverIndex(index)
@@ -47,6 +49,7 @@ export default function EditorTabs() {
   }
 
   function handleDrop(e: React.DragEvent, toIndex: number) {
+    if (!e.dataTransfer.types.includes('application/x-editor-tab-index')) return
     e.preventDefault()
     setDragOverIndex(null)
     const fromIndex = parseInt(e.dataTransfer.getData('application/x-editor-tab-index'), 10)
@@ -61,6 +64,17 @@ export default function EditorTabs() {
   return (
     <div className="editor-tabs" ref={tabListRef}>
       <div className="editor-tabs-list" role="tablist">
+        {openFiles.length > 1 && (
+          <button
+            type="button"
+            className="editor-tabs-close-all"
+            onClick={closeAllTabs}
+            title="Close all tabs"
+            aria-label="Close all tabs"
+          >
+            <SquareStack size={14} strokeWidth={1.8} />
+          </button>
+        )}
         {openFiles.map((file, index) => {
           const isActive = index === activeFileIndex
           const name = file.name

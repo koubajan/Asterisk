@@ -136,7 +136,7 @@ export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
       {/* Open workspace */}
       <button className="topbar-btn" onClick={openFolder} title="Open workspace (⌘⇧O)">
         <LayoutDashboard size={13} strokeWidth={1.7} />
-        Open workspace
+        Open Workspace
       </button>
 
       {/* New file */}

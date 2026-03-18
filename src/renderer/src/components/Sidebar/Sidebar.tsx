@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid, Calendar as CalendarIcon } from 'lucide-react'
+import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid, PenLine, Calendar as CalendarIcon } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
 import FileTree from './FileTree'
@@ -42,7 +42,7 @@ function filterTree(
 }
 
 interface CreateTarget {
-  type: 'file' | 'folder' | 'canvas'
+  type: 'file' | 'folder' | 'canvas' | 'excalidraw'
   dirPath: string
 }
 
@@ -198,6 +198,20 @@ export default function Sidebar() {
       } else {
         setError(result.error ?? 'Failed to create artifact')
       }
+    } else if (creating.type === 'excalidraw') {
+      const result = await window.asterisk.createExcalidraw(folderPath, name)
+      if (result.ok) {
+        setError(null)
+        await handleRefresh()
+        if (result.data?.node) {
+          const openFileNode = useWorkspace.getState().openFileNode
+          await openFileNode(result.data.node)
+        }
+        setCreating(null)
+        setCreateName('')
+      } else {
+        setError(result.error ?? 'Failed to create Excalidraw drawing')
+      }
     }
   }
 
@@ -218,6 +232,11 @@ export default function Sidebar() {
 
   function handleNewCanvas(dirPath: string) {
     setCreating({ type: 'canvas', dirPath })
+    setCreateName('')
+  }
+
+  function handleNewExcalidraw(dirPath: string) {
+    setCreating({ type: 'excalidraw', dirPath })
     setCreateName('')
   }
 
@@ -267,14 +286,17 @@ export default function Sidebar() {
       <div className="sidebar-header">
         {view === 'tree' && (
           <>
-            <button className="sidebar-icon-btn" title="New file" onClick={() => handleNewFile(folderPath)}>
+            <button className="sidebar-icon-btn" title="New File" onClick={() => handleNewFile(folderPath)}>
               <FilePlus size={14} strokeWidth={1.7} />
             </button>
-            <button className="sidebar-icon-btn" title="New folder" onClick={() => handleNewFolder(folderPath)}>
+            <button className="sidebar-icon-btn" title="New Folder" onClick={() => handleNewFolder(folderPath)}>
               <FolderPlus size={14} strokeWidth={1.7} />
             </button>
-            <button className="sidebar-icon-btn" title="New artifact" onClick={() => handleNewCanvas(folderPath)}>
+            <button className="sidebar-icon-btn" title="New Artifact" onClick={() => handleNewCanvas(folderPath)}>
               <LayoutGrid size={14} strokeWidth={1.7} />
+            </button>
+            <button className="sidebar-icon-btn" title="New Excalidraw Drawing" onClick={() => handleNewExcalidraw(folderPath)}>
+              <PenLine size={14} strokeWidth={1.7} />
             </button>
             <button className="sidebar-icon-btn" title="Refresh" onClick={handleRefresh}>
               <RotateCw size={13} strokeWidth={1.7} />
@@ -313,7 +335,7 @@ export default function Sidebar() {
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') cancelCreate() }}
-            placeholder={creating.type === 'file' ? 'File Name' : creating.type === 'canvas' ? 'Artifact name' : 'Folder Name'}
+            placeholder={creating.type === 'file' ? 'File Name' : creating.type === 'canvas' ? 'Artifact name' : creating.type === 'excalidraw' ? 'Drawing name' : 'Folder Name'}
           />
           <button type="submit" className="sidebar-create-ok" title="Create">
             <Check size={12} strokeWidth={2.5} />
@@ -430,7 +452,7 @@ export default function Sidebar() {
           )}
           {filteredTree.length === 0 && !(query.trim() && contentMatches.length > 0) ? (
             <div className="sidebar-tree-empty" onContextMenu={(e) => e.preventDefault()}>
-              {query || selectedTagIds.length > 0 ? 'No matching files.' : 'No markdown files found.'}
+              {query || selectedTagIds.length > 0 ? 'No matching files.' : 'No files found.'}
             </div>
           ) : (
             <FileTree
@@ -439,6 +461,7 @@ export default function Sidebar() {
               onNewFile={handleNewFile}
               onNewFolder={handleNewFolder}
               onNewCanvas={handleNewCanvas}
+              onNewExcalidraw={handleNewExcalidraw}
             />
           )}
         </div>

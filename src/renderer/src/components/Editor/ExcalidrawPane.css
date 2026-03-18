@@ -1,0 +1,31 @@
+.excalidraw-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--bg-editor);
+}
+
+.excalidraw-pane .excalidraw-wrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.excalidraw-pane .excalidraw-wrapper .excalidraw {
+  --color-surface-lowest: var(--bg-editor) !important;
+}
+
+.excalidraw-pane .excalidraw .Island {
+  background: var(--bg-base);
+}
+
+.excalidraw-pane-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}

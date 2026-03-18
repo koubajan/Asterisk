@@ -56,6 +56,7 @@ interface WorkspaceState {
   openFileNode: (node: FolderNode) => Promise<void>
   setActiveFileIndex: (index: number) => void
   closeTab: (index: number) => void
+  closeAllTabs: () => void
   reorderOpenFiles: (fromIndex: number, toIndex: number) => void
   updateContent: (content: string) => void
   markSaved: () => void
@@ -160,24 +161,67 @@ export const useWorkspace = create<WorkspaceState>()(
         if (node.kind !== 'file') return
         const { openFiles } = get()
         const existingIdx = openFiles.findIndex((f) => f.path === node.path)
+
+        // Classify by file extension (case-insensitive)
+        const extMatch = node.name.toLowerCase().match(/\.([a-z0-9]+)$/)
+        const ext = extMatch ? extMatch[1] : ''
+        const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'heic', 'heif', 'avif']
+        const binaryExts = [
+          'pdf', 'docx', 'doc', 'odt', 'rtf',
+          'xlsx', 'xls', 'ods',
+          'pptx', 'ppt', 'odp',
+          'zip', 'tar', 'gz', 'bz2', '7z', 'rar',
+          'db', 'sqlite', 'exe', 'dll', 'so', 'dylib'
+        ]
+        const isImage = imageExts.includes(ext)
+        const isBinary = binaryExts.includes(ext)
+
         if (existingIdx >= 0) {
-          set({ activeFileIndex: existingIdx, isEditing: true })
+          set({ activeFileIndex: existingIdx, isEditing: !isImage && !isBinary })
           return
         }
+
         set({ isLoading: true, error: null })
-        const result = await window.asterisk.readFile(node.path)
-        if (!result.ok || result.data === undefined) {
-          set({ isLoading: false, error: result.error ?? 'Failed to read file' })
-          return
+        let newFile: EditorFile
+
+        if (isImage) {
+          newFile = {
+            path: node.path,
+            name: node.name,
+            content: '',
+            isDirty: false,
+            fileType: 'image' as any
+          }
+        } else if (isBinary) {
+          newFile = {
+            path: node.path,
+            name: node.name,
+            content: '',
+            isDirty: false,
+            fileType: 'binary' as any
+          }
+        } else {
+          const result = await window.asterisk.readFile(node.path)
+          if (!result.ok || result.data === undefined) {
+            set({ isLoading: false, error: result.error ?? 'Failed to read file' })
+            return
+          }
+          newFile = {
+            path: node.path,
+            name: node.name,
+            content: result.data.content,
+            isDirty: false,
+            fileType: 'text' as any
+          }
         }
-        const newFile: EditorFile = { path: node.path, name: node.name, content: result.data.content, isDirty: false }
+
         const nextFiles = [...openFiles, newFile].slice(-MAX_OPEN_TABS)
         const nextIndex = nextFiles.length - 1
         set({
           openFiles: nextFiles,
           activeFileIndex: nextIndex,
           isLoading: false,
-          isEditing: true,
+          isEditing: !isImage && !isBinary,
         })
       },
 
@@ -193,6 +237,8 @@ export const useWorkspace = create<WorkspaceState>()(
         }
         return { openFiles: nextFiles, activeFileIndex: nextIndex }
       }),
+
+      closeAllTabs: () => set({ openFiles: [], activeFileIndex: 0 }),
 
       reorderOpenFiles: (fromIndex, toIndex) => set((state) => {
         const { openFiles, activeFileIndex } = state
@@ -304,7 +350,10 @@ export const useWorkspace = create<WorkspaceState>()(
       partialize: (state) => ({
         workspaces: state.workspaces,
         activeWorkspaceIndex: state.activeWorkspaceIndex,
-        openFiles: state.openFiles,
+        openFiles: state.openFiles.map((f) => {
+          const { dataUrl, ...rest } = f as typeof f & { dataUrl?: string }
+          return rest
+        }),
         activeFileIndex: state.activeFileIndex,
         isEditing: state.isEditing,
         previewVisible: state.previewVisible,

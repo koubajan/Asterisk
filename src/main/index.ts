@@ -1,17 +1,32 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, nativeImage, protocol } from 'electron'
 import { join } from 'path'
-import { registerIpcHandlers } from './ipc/handlers'
+import { existsSync } from 'fs'
+import { registerIpcHandlers, registerImageProtocol } from './ipc/handlers'
 import { buildMenu } from './menu'
+
+protocol.registerSchemesAsPrivileged([{ scheme: 'asterisk-file', privileges: { standard: true } }])
 
 const isDev = !app.isPackaged
 
+function getIconPath(): string | undefined {
+  const candidates = [
+    join(app.getAppPath(), 'resources', 'icon.png'),
+    join(__dirname, '..', '..', 'resources', 'icon.png')
+  ]
+  return candidates.find((p) => existsSync(p))
+}
+
 function createWindow(): BrowserWindow {
+  const iconPath = getIconPath()
+  const iconImage = iconPath ? nativeImage.createFromPath(iconPath) : null
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 720,
     minHeight: 500,
     backgroundColor: '#111111',
+    title: 'Asterisk',
+    ...(iconImage && !iconImage.isEmpty() ? { icon: iconImage } : {}),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
@@ -44,7 +59,14 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  const iconPath = getIconPath()
+  if (iconPath && process.platform === 'darwin') {
+    const iconImage = nativeImage.createFromPath(iconPath)
+    if (!iconImage.isEmpty()) app.dock.setIcon(iconImage)
+  }
+
   registerIpcHandlers()
+  registerImageProtocol()
   buildMenu()
   createWindow()
 

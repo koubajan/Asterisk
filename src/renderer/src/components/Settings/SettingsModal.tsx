@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useSettings, PRESET_THEMES, Theme, ThemeColors } from '../../store/useSettings'
-import { X, RotateCcw, Plus, Trash2, Palette, FileText, Key, Keyboard, Download, Upload } from 'lucide-react'
+import { X, RotateCcw, Plus, Trash2, Palette, FileText, Key, Keyboard, Download, Upload, Eye, Columns2 } from 'lucide-react'
 import './SettingsModal.css'
 
 type SettingsSection = 'appearance' | 'editor' | 'ai' | 'shortcuts'
@@ -32,10 +32,10 @@ export default function SettingsModal() {
   const {
     isSettingsOpen, closeSettings,
     activeThemeId, customThemes,
-    typography, lineWrapping, fontSize, tabSize, autoSave,
+    typography, lineWrapping, fontSize, tabSize, autoSave, editorMode,
     openaiApiKey, anthropicApiKey, geminiApiKey, setOpenaiApiKey, setAnthropicApiKey, setGeminiApiKey,
     setActiveTheme, addCustomTheme, deleteCustomTheme, exportThemes, importThemes,
-    setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave,
+    setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave, setEditorMode,
     resetSettings
   } = useSettings()
 
@@ -208,6 +208,32 @@ export default function SettingsModal() {
 
             {section === 'editor' && (
               <>
+                <div className="settings-group">
+                  <h3>Editor Mode</h3>
+                  <div className="settings-mode-toggle">
+                    <button
+                      type="button"
+                      className={`settings-mode-btn ${editorMode === 'live-preview' ? 'active' : ''}`}
+                      onClick={() => setEditorMode('live-preview')}
+                    >
+                      <Eye size={16} />
+                      <span>Live Preview</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`settings-mode-btn ${editorMode === 'split-view' ? 'active' : ''}`}
+                      onClick={() => setEditorMode('split-view')}
+                    >
+                      <Columns2 size={16} />
+                      <span>Split View</span>
+                    </button>
+                  </div>
+                  <p className="settings-mode-hint">
+                    {editorMode === 'live-preview'
+                      ? 'Markdown syntax is hidden until you move the cursor to a line.'
+                      : 'Raw markdown on the left, rendered preview on the right.'}
+                  </p>
+                </div>
                 <div className="settings-group">
                   <h3>Editor</h3>
                   <div className="settings-row">

@@ -184,3 +184,90 @@
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+/* Mermaid diagrams */
+.mermaid-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 1.5em 0;
+  padding: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  min-height: 100px;
+}
+
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-loading {
+  color: var(--text-muted);
+}
+
+.mermaid-loading-text {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.mermaid-error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.mermaid-error-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.mermaid-error-text {
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+/* ── Excalidraw embed ──────────────────────────────────────────────────── */
+
+.excalidraw-embed-container {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  overflow: hidden;
+}
+
+.excalidraw-embed-container:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.excalidraw-embed-container svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.excalidraw-embed-loading {
+  margin: 16px 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.excalidraw-embed-error {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  font-size: 13px;
+}

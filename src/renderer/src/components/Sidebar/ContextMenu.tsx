@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pencil, Trash2, FilePlus, FolderPlus, Tag, Plus, Check, X, LayoutGrid } from 'lucide-react'
+import { Pencil, Trash2, FilePlus, FolderPlus, Tag, Plus, Check, X, LayoutGrid, PenLine } from 'lucide-react'
 import type { FolderNode } from '../../types'
 import { useWorkspace, TAG_COLORS } from '../../store/useWorkspace'
 
@@ -15,11 +15,12 @@ interface ContextMenuProps {
   onNewFile: (dirPath: string) => void
   onNewFolder: (dirPath: string) => void
   onNewCanvas?: (dirPath: string) => void
+  onNewExcalidraw?: (dirPath: string) => void
   rootPath: string
 }
 
 export default function ContextMenu({
-  node, x, y, onClose, onRename, onDelete, onToggleTag, onNewFile, onNewFolder, onNewCanvas, rootPath
+  node, x, y, onClose, onRename, onDelete, onToggleTag, onNewFile, onNewFolder, onNewCanvas, onNewExcalidraw, rootPath
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const newTagInputRef = useRef<HTMLInputElement>(null)
@@ -76,7 +77,12 @@ export default function ContextMenu({
       </button>
       {onNewCanvas && (
         <button className="context-menu-item" onClick={() => { onNewCanvas(rootPath); onClose() }}>
-          <LayoutGrid size={13} strokeWidth={1.7} /> New artifact
+          <LayoutGrid size={13} strokeWidth={1.7} /> New Artifact
+        </button>
+      )}
+      {onNewExcalidraw && (
+        <button className="context-menu-item" onClick={() => { onNewExcalidraw(rootPath); onClose() }}>
+          <PenLine size={13} strokeWidth={1.7} /> New Excalidraw Drawing
         </button>
       )}
 

@@ -35,10 +35,14 @@ export const asteriskEditorTheme = EditorView.theme(
     },
     '.cm-gutters': {
       backgroundColor: 'var(--bg-editor)',
-      color: '#555555',
+      color: 'var(--text-muted)',
       border: 'none',
       paddingRight: '8px',
-      display: 'none' // hide line numbers for clean writing feel
+      minWidth: '2.5em'
+    },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 8px 0 4px',
+      minWidth: '2em'
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent'
@@ -46,9 +50,102 @@ export const asteriskEditorTheme = EditorView.theme(
     '.cm-activeLine': {
       backgroundColor: 'rgba(255, 255, 255, 0.02)'
     },
-    // Hide markdown control syntax; no layout space when hidden (revealed by cursor/hover proximity)
+    // Hide markdown control syntax (revealed when cursor enters the construct)
     '.cm-md-hidden': {
       display: 'none',
+    },
+    // Fenced / indented code block line background
+    '.cm-md-codeblock-line': {
+      backgroundColor: 'rgba(255, 255, 255, 0.035)',
+      borderRadius: '0',
+    },
+    '.cm-md-codeblock-line:first-of-type': {
+      borderRadius: '6px 6px 0 0',
+    },
+    '.cm-md-codeblock-line:last-of-type': {
+      borderRadius: '0 0 6px 6px',
+    },
+    // Horizontal rule widget
+    '.cm-md-hr': {
+      display: 'block',
+      height: '0',
+      borderTop: '1px solid var(--border)',
+      margin: '8px 0',
+    },
+    // Task checkbox widget
+    '.cm-md-checkbox': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '16px',
+      height: '16px',
+      border: '1.5px solid var(--text-muted)',
+      borderRadius: '3px',
+      verticalAlign: 'middle',
+      marginRight: '6px',
+      fontSize: '11px',
+      lineHeight: '1',
+      userSelect: 'none',
+      cursor: 'pointer',
+      transition: 'border-color 0.15s, background-color 0.15s',
+    },
+    '.cm-md-checkbox:hover': {
+      borderColor: 'var(--accent)',
+    },
+    '.cm-md-checkbox-checked': {
+      backgroundColor: 'var(--accent)',
+      borderColor: 'var(--accent)',
+      color: 'var(--bg-base)',
+    },
+    '.cm-md-checkbox-checked:hover': {
+      opacity: '0.85',
+    },
+    // Bullet list widget
+    '.cm-md-bullet': {
+      display: 'inline-block',
+      width: '1.5em',
+      textAlign: 'center',
+      color: 'var(--text-muted)',
+      userSelect: 'none',
+    },
+    // Code fence language label (replaces ``` line when not editing)
+    '.cm-md-fence-label': {
+      display: 'inline-block',
+      fontSize: '11px',
+      color: 'var(--text-muted)',
+      opacity: '0.6',
+      fontFamily: 'var(--font-mono)',
+      letterSpacing: '0.05em',
+    },
+    // Mermaid diagram widget
+    '.cm-md-mermaid': {
+      position: 'relative',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: '16px 0',
+      minHeight: '60px',
+      cursor: 'text',
+      borderRadius: '6px',
+      transition: 'outline-color 0.15s',
+      outline: '2px solid transparent',
+    },
+    '.cm-md-mermaid:hover': {
+      outline: '2px solid var(--accent)',
+    },
+    '.cm-md-mermaid svg': {
+      maxWidth: '100%',
+    },
+    '.cm-md-mermaid-loading': {
+      color: 'var(--text-muted)',
+      fontSize: '13px',
+      fontStyle: 'italic',
+    },
+    '.cm-md-mermaid-error': {
+      color: '#ef4444',
+      fontSize: '13px',
+      fontStyle: 'italic',
+      padding: '8px 16px',
     },
     '.cm-scroller': {
       overflow: 'auto',

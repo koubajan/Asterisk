@@ -22,6 +22,22 @@ function extractCodeBlock(text: string): string | null {
   return m ? m[1].trim() : null
 }
 
+/** Detect if the string looks like HTML (e.g. AI returned HTML instead of markdown). */
+function looksLikeHtml(text: string): boolean {
+  const t = text.trim()
+  return t.startsWith('<') && /<\/?[a-z][\s\S]*>/i.test(t)
+}
+
+/** Extract markdown/code from HTML for "Apply" so we don't write raw HTML into the file. */
+function extractMarkdownFromHtml(html: string): string {
+  const preCode = html.match(/<pre[^>]*>[\s\S]*?<code[^>]*>([\s\S]*?)<\/code>[\s\S]*?<\/pre>/i)
+  if (preCode) return preCode[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim()
+  const code = html.match(/<code[^>]*>([\s\S]*?)<\/code>/i)
+  if (code) return code[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim()
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return (doc.body?.textContent ?? html).trim()
+}
+
 export default function AIChat({ onClose }: AIChatProps) {
   const [input, setInput] = useState('')
   const [includeFile, setIncludeFile] = useState(true)
@@ -85,15 +101,20 @@ export default function AIChat({ onClose }: AIChatProps) {
     return () => clearInterval(t)
   }, [loading, revealedWords, totalWords])
 
-  // When opened via /ask command, send the pending prompt
+  // When opened via command, send the pending prompt (syntax commands use apply-friendly: send .md + ask for code block)
   useEffect(() => {
     if (!pendingPrompt) return
-    const fileContext = includeFile && openFile?.path.endsWith('.md') ? openFile.content : undefined
+    const { pendingPromptApplyFriendly } = useAIChat.getState()
+    const forceIncludeFile = pendingPromptApplyFriendly && openFile?.path && /\.(md|markdown)$/i.test(openFile.path)
+    const fileContext = forceIncludeFile ? openFile!.content : (includeFile && openFile?.path && /\.(md|markdown)$/i.test(openFile.path) ? openFile.content : undefined)
+    const message = pendingPromptApplyFriendly
+      ? `${pendingPrompt}\n\nReply with only the revised markdown in a single code block (\`\`\`markdown ... \`\`\`) so I can apply the changes.`
+      : pendingPrompt
     setPendingPrompt(null)
-    sendMessage(pendingPrompt, fileContext)
+    sendMessage(message, fileContext)
   }, [pendingPrompt])
 
-  const fileContext = includeFile && openFile?.path.endsWith('.md') ? openFile.content : undefined
+  const fileContext = includeFile && openFile?.path && /\.(md|markdown)$/i.test(openFile.path) ? openFile.content : undefined
 
   async function handleSend() {
     const text = input.trim()
@@ -105,12 +126,20 @@ export default function AIChat({ onClose }: AIChatProps) {
   function handleApplyFromLast() {
     const last = messages.filter((m) => m.role === 'assistant').pop()
     if (!last || !openFile) return
+    let newContent: string
     const code = extractCodeBlock(last.content)
-    const newContent = code ?? last.content
+    if (code != null) {
+      newContent = code
+    } else if (looksLikeHtml(last.content)) {
+      newContent = extractMarkdownFromHtml(last.content)
+    } else {
+      newContent = last.content
+    }
     setDiffState({ oldContent: openFile.content, newContent })
   }
 
-  const canApply = openFile && lastAssistant && (extractCodeBlock(lastAssistant.content) != null || lastAssistant.content.trim().length > 0)
+  const isMd = openFile?.path != null && /\.(md|markdown)$/i.test(openFile.path)
+  const canApply = openFile && isMd && lastAssistant && (extractCodeBlock(lastAssistant.content) != null || lastAssistant.content.trim().length > 0)
 
   return (
     <div className="ai-panel">
@@ -172,9 +201,13 @@ export default function AIChat({ onClose }: AIChatProps) {
           const displayContent = isLastAssistant && revealedWords < totalWords
             ? words.slice(0, revealedWords).join('')
             : msg.content
-          const html =
-            !displayContent
-              ? ''
+          const html = !displayContent
+            ? ''
+            : looksLikeHtml(displayContent)
+              ? DOMPurify.sanitize(displayContent, {
+                  ADD_TAGS: ['input', 'pre', 'code'],
+                  ADD_ATTR: ['type', 'checked']
+                })
               : DOMPurify.sanitize(marked.parse(displayContent) as string, {
                   ADD_TAGS: ['input'],
                   ADD_ATTR: ['type', 'checked']
@@ -207,7 +240,7 @@ export default function AIChat({ onClose }: AIChatProps) {
         </div>
       )}
       <div className="ai-panel-input-wrap">
-        {openFile && openFile.path.endsWith('.md') && (
+        {openFile && openFile.path && /\.(md|markdown)$/i.test(openFile.path) && (
           <label className="ai-panel-context">
             <input
               type="checkbox"

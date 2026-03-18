@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ChevronRight, Folder, FolderOpen, FileText, File, LayoutGrid } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FileText, File, LayoutGrid, PenLine } from 'lucide-react'
 import type { FolderNode } from '../../types'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
@@ -30,6 +30,7 @@ interface FileTreeProps {
   onNewFile: (dirPath: string) => void
   onNewFolder: (dirPath: string) => void
   onNewCanvas?: (dirPath: string) => void
+  onNewExcalidraw?: (dirPath: string) => void
 }
 
 interface ContextMenuState {
@@ -40,7 +41,7 @@ interface ContextMenuState {
 
 const TREE_DRAG_TYPE = 'application/x-asterisk-tree-path'
 
-export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNewCanvas }: FileTreeProps) {
+export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNewCanvas, onNewExcalidraw }: FileTreeProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -131,6 +132,7 @@ export default function FileTree({ nodes, rootPath, onNewFile, onNewFolder, onNe
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
           onNewCanvas={onNewCanvas}
+          onNewExcalidraw={onNewExcalidraw}
         />
       )}
     </div>
@@ -203,7 +205,7 @@ function TreeNode(props: TreeNodeProps) {
     const relPath = getRelativePath(openFilePath, node.path)
     e.dataTransfer.setData('text/plain', `[${node.name}](${relPath})`)
     e.dataTransfer.setData(TREE_DRAG_TYPE, node.path)
-    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.effectAllowed = 'copyMove'
     onDragStart(node.path)
   }
 
@@ -285,11 +287,15 @@ function TreeNode(props: TreeNodeProps) {
           {isFolder
             ? (node.name === 'Artifacts'
                 ? <LayoutGrid size={14} strokeWidth={1.4} />
+                : node.name === 'Excalidraw'
+                ? <PenLine size={14} strokeWidth={1.4} />
                 : (open
                     ? <FolderOpen size={14} strokeWidth={1.4} />
                     : <Folder size={14} strokeWidth={1.4} />))
             : (nameExt === '.artifact'
                 ? <LayoutGrid size={14} strokeWidth={1.4} />
+                : nameExt === '.excalidraw'
+                ? <PenLine size={14} strokeWidth={1.4} />
                 : nameExt === '.md' || nameExt === '.markdown'
                 ? <FileText size={14} strokeWidth={1.4} />
                 : <File size={14} strokeWidth={1.4} />)

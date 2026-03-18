@@ -15,6 +15,9 @@ const api: AsteriskAPI = {
   createCanvas: (dirPath: string, name: string) =>
     ipcRenderer.invoke('fs:create-canvas', dirPath, name),
 
+  createExcalidraw: (dirPath: string, name: string) =>
+    ipcRenderer.invoke('fs:create-excalidraw', dirPath, name),
+
   createFolder: (dirPath: string, name: string) =>
     ipcRenderer.invoke('fs:create-folder', dirPath, name),
 
@@ -39,6 +42,15 @@ const api: AsteriskAPI = {
 
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('fs:read-image-data-url', filePath),
+
+  fetchUrlText: (url: string) =>
+    ipcRenderer.invoke('fetch-url-text', url),
+
+  fetchImageDataUrl: (imageUrl: string) =>
+    ipcRenderer.invoke('fetch-image-data-url', imageUrl),
+
+  openExternalUrl: (url: string) =>
+    ipcRenderer.invoke('open-external-url', url),
 
   onFolderChange: (callback: (tree: FolderNode[]) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, tree: FolderNode[]) => callback(tree)

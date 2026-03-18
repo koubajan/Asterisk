@@ -1,15 +1,38 @@
 {
   "name": "asterisk",
+  "productName": "Asterisk",
   "version": "0.1.0",
   "description": "A dark Markdown note editor",
   "main": "./out/main/index.js",
   "author": "Jan Kouba",
   "license": "MIT",
+  "build": {
+    "appId": "com.asterisk.app",
+    "directories": {
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**",
+      "!out/**/*.map"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "resources/icon.png"
+    },
+    "win": {
+      "icon": "resources/icon.png"
+    },
+    "linux": {
+      "icon": "resources/icon.png"
+    }
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "dist": "npm run build && electron-builder",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "rebuild:sharp": "electron-rebuild -f -w sharp"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -21,6 +44,7 @@
     "@codemirror/search": "^6.5.6",
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.35.3",
+    "@excalidraw/excalidraw": "^0.18.0",
     "@google/generative-ai": "^0.24.1",
     "@lezer/highlight": "^1.2.1",
     "codemirror": "^6.0.1",
@@ -31,12 +55,15 @@
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.577.0",
     "marked": "^15.0.7",
+    "mermaid": "^11.13.0",
     "openai": "^6.29.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.34.5",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "@types/d3": "^7.4.3",
     "@types/dompurify": "^3.0.5",
     "@types/node": "^22.13.5",

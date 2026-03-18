@@ -13,10 +13,10 @@ const DEFAULT_PROMPTS: Record<string, string> = {
   ask: 'Help me with this note or documentation.'
 }
 
-function openAIWithPrompt(args: string, defaultKey: string): Promise<void> {
+function openAIWithPrompt(args: string, defaultKey: string, applyFriendly: boolean): Promise<void> {
   const custom = args.trim()
   const prompt = custom || DEFAULT_PROMPTS[defaultKey] || DEFAULT_PROMPTS.ask
-  useAIChat.getState().setPendingPrompt(prompt)
+  useAIChat.getState().setPendingPrompt(prompt, { applyFriendly })
   window.dispatchEvent(new CustomEvent('asterisk:open-ai'))
   return Promise.resolve()
 }
@@ -26,43 +26,43 @@ export function registerBuiltInCommands(): void {
     prefix: '/',
     name: 'improve',
     description: 'Improve clarity and flow',
-    execute: (args, ctx) => openAIWithPrompt(args, 'improve')
+    execute: (args, ctx) => openAIWithPrompt(args, 'improve', true)
   })
   registerCommand({
     prefix: '/',
     name: 'outline',
     description: 'Add or suggest outline structure',
-    execute: (args, ctx) => openAIWithPrompt(args, 'outline')
+    execute: (args, ctx) => openAIWithPrompt(args, 'outline', true)
   })
   registerCommand({
     prefix: '/',
     name: 'expand',
     description: 'Expand key points with more detail',
-    execute: (args, ctx) => openAIWithPrompt(args, 'expand')
+    execute: (args, ctx) => openAIWithPrompt(args, 'expand', true)
   })
   registerCommand({
     prefix: '/',
     name: 'shorten',
     description: 'Make the note more concise',
-    execute: (args, ctx) => openAIWithPrompt(args, 'shorten')
+    execute: (args, ctx) => openAIWithPrompt(args, 'shorten', true)
   })
   registerCommand({
     prefix: '/',
     name: 'tone',
     description: 'Rewrite in a more formal tone',
-    execute: (args, ctx) => openAIWithPrompt(args, 'tone')
+    execute: (args, ctx) => openAIWithPrompt(args, 'tone', true)
   })
   registerCommand({
     prefix: '/',
     name: 'casual',
     description: 'Rewrite in a casual, friendly tone',
-    execute: (args, ctx) => openAIWithPrompt(args, 'casual')
+    execute: (args, ctx) => openAIWithPrompt(args, 'casual', true)
   })
   registerCommand({
     prefix: '/',
     name: 'ask',
     description: 'Ask anything about this note',
-    execute: (args, ctx) => openAIWithPrompt(args, 'ask')
+    execute: (args, ctx) => openAIWithPrompt(args, 'ask', false)
   })
   registerCommand({
     prefix: '/',

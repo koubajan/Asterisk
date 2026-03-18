@@ -52,6 +52,29 @@ export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerPr
     setDropdownRect({ top: rect.bottom + 4, left: rect.left })
   }, [pickerOpen])
 
+  useEffect(() => {
+    if (!pickerOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      const dropdown = document.querySelector('.note-date-picker-dropdown-portal')
+      if (dropdown?.contains(target)) return
+      setPickerOpen(false)
+    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPickerOpen(false)
+    }
+    const t = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscape)
+    }, 0)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [pickerOpen])
+
   if (!filePath || !filePath.endsWith('.md')) return null
 
   async function handleSet() {

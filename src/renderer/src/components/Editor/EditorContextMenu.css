@@ -96,6 +96,8 @@
   border-left: 1px solid var(--border);
   margin-left: 18px;
   margin-bottom: 2px;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .editor-ctx-subitem {

@@ -9,13 +9,15 @@ export function useAutoSave(): void {
   const updateContent = useWorkspace((s) => s.updateContent)
   const autoSave = useSettings((s) => s.autoSave)
   const isCanvas = openFile?.path.endsWith('.artifact') ?? false
+  const isExcalidraw = openFile?.path.endsWith('.excalidraw') ?? false
   const artifactsDirty = useArtifacts((s) => s.isDirty)
   const artifactsMarkSaved = useArtifacts((s) => s.markSaved)
 
   const fileDirty = isCanvas ? artifactsDirty : (openFile?.isDirty ?? false)
 
   useEffect(() => {
-    if (!autoSave || !openFile || !fileDirty) return
+    // Excalidraw handles its own save via debounced onChange
+    if (!autoSave || !openFile || !fileDirty || isExcalidraw) return
 
     const timer = setTimeout(async () => {
       const contentToSave = isCanvas ? getCanvasContentForSave() : openFile.content
@@ -31,5 +33,5 @@ export function useAutoSave(): void {
     }, 800)
 
     return () => clearTimeout(timer)
-  }, [autoSave, openFile?.path, fileDirty, isCanvas, openFile?.content, markSaved, updateContent, artifactsMarkSaved])
+  }, [autoSave, openFile?.path, fileDirty, isCanvas, isExcalidraw, openFile?.content, markSaved, updateContent, artifactsMarkSaved])
 }

@@ -1,8 +1,9 @@
-import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group } from 'lucide-react'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 
 interface CanvasToolbarProps {
   onAddCard?: () => void
+  onAddLink?: () => void
   onZoomIn?: () => void
   onZoomOut?: () => void
   onZoomReset?: () => void
@@ -16,9 +17,11 @@ interface CanvasToolbarProps {
   onCreateGroup?: () => void
   selectionMode?: boolean
   onSelectionModeToggle?: () => void
+  moveMode?: boolean
+  onMoveModeToggle?: () => void
 }
 
-export default function CanvasToolbar({ onAddCard, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle }: CanvasToolbarProps) {
+export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle }: CanvasToolbarProps) {
   const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
   const canUndo = historyPast.length > 0
   const canRedo = historyFuture.length > 0
@@ -57,6 +60,11 @@ export default function CanvasToolbar({ onAddCard, onZoomIn, onZoomOut, onZoomRe
       <button type="button" className="canvas-toolbar-btn" onClick={onAddCard} title="Add card">
         <Plus size={16} strokeWidth={1.7} />
       </button>
+      {onAddLink && (
+        <button type="button" className="canvas-toolbar-btn" onClick={onAddLink} title="Add link (website or YouTube). Paste a URL to add at center.">
+          <Globe size={16} strokeWidth={1.7} />
+        </button>
+      )}
       {onConnectionModeToggle && (
         <button
           type="button"
@@ -65,6 +73,16 @@ export default function CanvasToolbar({ onAddCard, onZoomIn, onZoomOut, onZoomRe
           title="Connect (Shift + click two nodes)"
         >
           <Link2 size={16} strokeWidth={1.7} />
+        </button>
+      )}
+      {onMoveModeToggle && (
+        <button
+          type="button"
+          className={`canvas-toolbar-btn${moveMode ? ' active' : ''}`}
+          onClick={onMoveModeToggle}
+          title="Move mode: only move nodes (no resize or edit)"
+        >
+          <Hand size={16} strokeWidth={1.7} />
         </button>
       )}
       {canAlign && onAlign && (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { defaultKeymap, historyKeymap, history, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -12,6 +12,7 @@ import { editorLinkClick } from './editorLinkClick'
 import { autocompletion } from '@codemirror/autocomplete'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { editorCommandsExtension, commandCompletionSource } from './commands'
+import { markdownHideSyntax } from './markdownHideSyntax'
 
 interface UseCodeMirrorOptions {
   onChange: (value: string) => void
@@ -43,12 +44,13 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
   const onSaveRef = useRef(onSave)
   const onToggleBookmarkRef = useRef(onToggleBookmark)
   const settingsCompartmentRef = useRef<Compartment | null>(null)
+  const livePreviewCompartmentRef = useRef<Compartment | null>(null)
 
   onChangeRef.current = onChange
   onSaveRef.current = onSave
   onToggleBookmarkRef.current = onToggleBookmark
 
-  const { lineWrapping, fontSize, tabSize } = useSettings()
+  const { lineWrapping, fontSize, tabSize, editorMode } = useSettings()
 
   useEffect(() => {
     // containerRef.current is always set because the div is always in the DOM
@@ -77,8 +79,12 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
     const settingsCompartment = new Compartment()
     settingsCompartmentRef.current = settingsCompartment
 
-    const { lineWrapping: l, fontSize: f, tabSize: t } = useSettings.getState()
+    const livePreviewCompartment = new Compartment()
+    livePreviewCompartmentRef.current = livePreviewCompartment
+
+    const { lineWrapping: l, fontSize: f, tabSize: t, editorMode: m } = useSettings.getState()
     const initialSettings = buildSettingsExtensions(l, f, t)
+    const initialLivePreview = m === 'live-preview' ? [markdownHideSyntax] : [lineNumbers()]
 
     const extensions = [
       history(),
@@ -86,6 +92,7 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
       asteriskEditorTheme,
       asteriskHighlighting,
       settingsCompartment.of(initialSettings),
+      livePreviewCompartment.of(initialLivePreview),
       editorLinkClick(getCurrentFilePath ?? (() => null)),
       editorCommandsExtension(getCurrentFilePath ?? (() => null)),
       autocompletion({ override: [commandCompletionSource(getCurrentFilePath ?? (() => null))] }),
@@ -114,6 +121,7 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
       view.destroy()
       viewRef.current = null
       settingsCompartmentRef.current = null
+      livePreviewCompartmentRef.current = null
     }
   // Intentionally empty — runs once on mount, container is always present
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,6 +135,15 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
     const next = buildSettingsExtensions(lineWrapping, fontSize, tabSize)
     view.dispatch({ effects: compartment.reconfigure(next) })
   }, [lineWrapping, fontSize, tabSize])
+
+  // Reconfigure live preview mode (show/hide markdown syntax)
+  useEffect(() => {
+    const view = viewRef.current
+    const compartment = livePreviewCompartmentRef.current
+    if (!view || !compartment) return
+    const next = editorMode === 'live-preview' ? [markdownHideSyntax] : [lineNumbers()]
+    view.dispatch({ effects: compartment.reconfigure(next) })
+  }, [editorMode])
 
   const updateContent = useCallback((newContent: string) => {
     const view = viewRef.current

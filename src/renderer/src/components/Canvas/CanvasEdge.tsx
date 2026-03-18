@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { CanvasEdge as CanvasEdgeType, CanvasNode } from '../../types/canvas'
 
@@ -7,11 +7,14 @@ interface CanvasEdgeProps {
   nodes: CanvasNode[]
   selected?: boolean
   editingLabel?: boolean
+  /** When false, hide the color/label edit UI (e.g. when context menu is open for this edge). */
+  showEditUI?: boolean
   onSelect?: () => void
   onDoubleClick?: () => void
+  onContextMenu?: (e: React.MouseEvent<SVGGElement>) => void
   onLabelChange?: (label: string) => void
   onLabelEditEnd?: () => void
-  onColorChange?: (color: string) => void
+  onColorChange?: (color: string | undefined) => void
   getScreenPoint?: (canvasX: number, canvasY: number) => { x: number; y: number }
 }
 
@@ -67,8 +70,10 @@ export default function CanvasEdge({
   nodes,
   selected,
   editingLabel,
+  showEditUI = true,
   onSelect,
   onDoubleClick,
+  onContextMenu,
   onLabelChange,
   onLabelEditEnd,
   onColorChange,
@@ -113,6 +118,9 @@ export default function CanvasEdge({
     onLabelEditEnd?.()
   }
 
+  const markerId = `canvas-edge-arrow-${edge.id}`
+  const strokeW = selected ? 3 : 2
+
   return (
     <g
       data-canvas-edge
@@ -120,7 +128,20 @@ export default function CanvasEdge({
       cursor="pointer"
       onClick={(e) => { e.stopPropagation(); onSelect?.() }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.() }}
+      onContextMenu={(e) => { e.stopPropagation(); onContextMenu?.(e) }}
     >
+      <defs>
+        <marker
+          id={markerId}
+          markerWidth={10}
+          markerHeight={8}
+          refX={9}
+          refY={4}
+          orient="auto"
+        >
+          <polygon points="0 0, 10 4, 0 8" fill={color} />
+        </marker>
+      </defs>
       {/* Wide hit area */}
       <path
         d={path}
@@ -133,10 +154,11 @@ export default function CanvasEdge({
         d={path}
         fill="none"
         stroke={color}
-        strokeWidth={selected ? 3 : 2}
+        strokeWidth={strokeW}
         strokeLinecap="round"
+        markerEnd={`url(#${markerId})`}
       />
-      {selected && onColorChange && (screenPos ? createPortal(
+      {selected && showEditUI && onColorChange && (screenPos ? createPortal(
         <div
           className="canvas-edge-selected-ui canvas-edge-selected-ui-floating"
           style={{
@@ -160,6 +182,14 @@ export default function CanvasEdge({
                 onClick={(e) => { e.stopPropagation(); onColorChange(c) }}
               />
             ))}
+            <button
+              type="button"
+              className="canvas-edge-color-reset"
+              onClick={(e) => { e.stopPropagation(); onColorChange(undefined) }}
+              title="Reset to default color"
+            >
+              Reset
+            </button>
           </div>
           {editingLabel ? (
             <input
@@ -193,6 +223,7 @@ export default function CanvasEdge({
               {EDGE_PRESET_COLORS.map((c) => (
                 <button key={c} type="button" className="canvas-edge-color-swatch" style={{ backgroundColor: c, borderColor: c }} onClick={(e) => { e.stopPropagation(); onColorChange(c) }} />
               ))}
+              <button type="button" className="canvas-edge-color-reset" onClick={(e) => { e.stopPropagation(); onColorChange(undefined) }} title="Reset to default color">Reset</button>
             </div>
             {editingLabel ? <input ref={inputRef} type="text" className="canvas-edge-label-input" value={labelValue} onChange={(e) => setLabelValue(e.target.value)} onBlur={commitLabel} onKeyDown={(e) => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') { setLabelValue(edge.label ?? ''); onLabelEditEnd?.() } }} onClick={(e) => e.stopPropagation()} /> : edge.label ? <div className="canvas-edge-label-text" onClick={(e) => { e.stopPropagation(); onDoubleClick?.() }}>{edge.label}</div> : onDoubleClick ? <button type="button" className="canvas-edge-label-hint" onClick={(e) => { e.stopPropagation(); onDoubleClick() }}>Double-click to add label</button> : null}
           </div>

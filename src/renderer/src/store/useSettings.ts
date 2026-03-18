@@ -26,6 +26,8 @@ export const PRESET_THEMES: Theme[] = [
   { id: 'preset-slate', name: 'Slate', type: 'preset', colors: { accentColor: '#94a3b8', bgBase: '#000000', textPrimary: '#ffffff' } }
 ]
 
+export type EditorMode = 'live-preview' | 'split-view'
+
 interface SettingsState {
   isSettingsOpen: boolean
   activeThemeId: string
@@ -35,6 +37,8 @@ interface SettingsState {
   fontSize: number
   tabSize: number
   autoSave: boolean
+  /** Editor mode: live-preview hides syntax near cursor, split-view shows raw editor + preview pane. */
+  editorMode: EditorMode
   /** Split ratio for editor vs preview (0–1). 0.5 = half and half. */
   editorPreviewRatio: number
   /** AI panel width in px (resizable). */
@@ -58,6 +62,7 @@ interface SettingsState {
   setFontSize: (val: number) => void
   setTabSize: (val: number) => void
   setAutoSave: (val: boolean) => void
+  setEditorMode: (val: EditorMode) => void
   setEditorPreviewRatio: (val: number) => void
   setAiPanelWidth: (val: number) => void
   resetSettings: () => void
@@ -88,6 +93,7 @@ export const useSettings = create<SettingsState>()(
       fontSize: 14,
       tabSize: 2,
       autoSave: true,
+      editorMode: 'live-preview',
       editorPreviewRatio: 0.5,
       aiPanelWidth: 360,
       openaiApiKey: '',
@@ -123,6 +129,7 @@ export const useSettings = create<SettingsState>()(
       setFontSize: (fontSize) => set({ fontSize }),
       setTabSize: (tabSize) => set({ tabSize }),
       setAutoSave: (autoSave) => set({ autoSave }),
+      setEditorMode: (editorMode) => set({ editorMode }),
       setEditorPreviewRatio: (editorPreviewRatio) => set({ editorPreviewRatio: Math.max(0.2, Math.min(0.8, editorPreviewRatio)) }),
       setAiPanelWidth: (aiPanelWidth) => set({ aiPanelWidth: Math.max(280, Math.min(600, aiPanelWidth)) }),
       resetSettings: () => set({ 
@@ -132,6 +139,7 @@ export const useSettings = create<SettingsState>()(
         fontSize: 14,
         tabSize: 2,
         autoSave: true,
+        editorMode: 'live-preview',
         editorPreviewRatio: 0.5,
         aiPanelWidth: 360
       })
@@ -146,6 +154,7 @@ export const useSettings = create<SettingsState>()(
         fontSize: state.fontSize,
         tabSize: state.tabSize,
         autoSave: state.autoSave,
+        editorMode: state.editorMode,
         editorPreviewRatio: state.editorPreviewRatio,
         aiPanelWidth: state.aiPanelWidth,
         openaiApiKey: state.openaiApiKey,

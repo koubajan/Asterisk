@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Star, Maximize2, Minimize2 } from 'lucide-react'
+import { Star, Maximize2, Minimize2, FileX, Eye, Columns2 } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
+import { useSettings } from '../../store/useSettings'
 import { useCodeMirror } from './useCodeMirror'
 import EditorContextMenu from './EditorContextMenu'
 import NoteDatePicker from '../Calendar/NoteDatePicker'
+import ImagePreview from './ImagePreview'
 import './CommandSuggestionPanel.css'
 import './EditorPane.css'
+
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'heic', 'heif', 'avif']
+function isImageFileName(name: string): boolean {
+  const ext = name.toLowerCase().split('.').pop()
+  return !!ext && IMAGE_EXTS.includes(ext)
+}
 
 export default function EditorPane() {
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
@@ -13,10 +21,14 @@ export default function EditorPane() {
   const markSaved = useWorkspace((s) => s.markSaved)
   const bookmarks = useWorkspace((s) => s.bookmarks)
   const toggleBookmark = useWorkspace((s) => s.toggleBookmark)
+  const { editorMode, setEditorMode } = useSettings()
   const filePathRef = useRef<string | null>(null)
   const paneRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   filePathRef.current = openFile?.path ?? null
+
+  const showImagePreview = openFile && isImageFileName(openFile.name)
+  const isMdFile = openFile && /\.(md|markdown)$/i.test(openFile.name)
 
   const toggleFullscreen = useCallback(() => {
     const el = paneRef.current
@@ -81,19 +93,32 @@ export default function EditorPane() {
       <div className={`editor-header ${openFile ? 'visible' : ''}`}>
         {openFile && (
           <>
-            <button
-              type="button"
-              className={`editor-header-bookmark ${bookmarks.includes(openFile.path) ? 'active' : ''}`}
-              onClick={() => toggleBookmark(openFile.path)}
-              title={bookmarks.includes(openFile.path) ? 'Remove bookmark' : 'Bookmark this note'}
-              aria-label={bookmarks.includes(openFile.path) ? 'Remove bookmark' : 'Bookmark'}
-            >
-              <Star size={14} strokeWidth={1.7} />
-            </button>
+            {openFile.fileType === 'text' && (
+              <button
+                type="button"
+                className={`editor-header-bookmark ${bookmarks.includes(openFile.path) ? 'active' : ''}`}
+                onClick={() => toggleBookmark(openFile.path)}
+                title={bookmarks.includes(openFile.path) ? 'Remove bookmark' : 'Bookmark this note'}
+                aria-label={bookmarks.includes(openFile.path) ? 'Remove bookmark' : 'Bookmark'}
+              >
+                <Star size={14} strokeWidth={1.7} />
+              </button>
+            )}
             <span className="editor-header-name">{fileBase}</span>
             {fileExt && <span className="editor-header-ext">.{fileExt}</span>}
             <span className="editor-header-spacer" />
-            <NoteDatePicker filePath={openFile.path} />
+            {openFile.fileType === 'text' && <NoteDatePicker filePath={openFile.path} />}
+            {isMdFile && (
+              <button
+                type="button"
+                className={`editor-header-mode ${editorMode === 'split-view' ? 'split' : ''}`}
+                onClick={() => setEditorMode(editorMode === 'live-preview' ? 'split-view' : 'live-preview')}
+                title={editorMode === 'live-preview' ? 'Switch to Split View' : 'Switch to Live Preview'}
+                aria-label={editorMode === 'live-preview' ? 'Switch to Split View' : 'Switch to Live Preview'}
+              >
+                {editorMode === 'live-preview' ? <Eye size={14} strokeWidth={1.7} /> : <Columns2 size={14} strokeWidth={1.7} />}
+              </button>
+            )}
             <button
               type="button"
               className="editor-header-fullscreen"
@@ -113,14 +138,33 @@ export default function EditorPane() {
         If we conditionally render it, containerRef.current is null when the
         effect runs and the editor never initializes.
       */}
+      {/* CodeMirror editor - hidden when showing image or binary */}
       <div
         ref={containerRef}
         className="editor-cm-wrapper"
-        style={{ display: openFile ? 'flex' : 'none' }}
+        style={{
+          display: openFile && !showImagePreview && openFile.fileType !== 'binary' ? 'flex' : 'none'
+        }}
       />
 
       {/* Right-click formatting context menu */}
       <EditorContextMenu editorView={viewRef.current} />
+
+      {/* Image preview: loads image via IPC so it works in dev and production */}
+      {showImagePreview && (
+        <div className="editor-image-preview-wrap" style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+          <ImagePreview filePath={openFile.path} fileName={openFile.name} />
+        </div>
+      )}
+
+      {/* Binary file - no preview available (never for image-by-extension) */}
+      {openFile?.fileType === 'binary' && !isImageFileName(openFile.name) && (
+        <div className="editor-binary-preview">
+          <FileX size={48} strokeWidth={1.2} />
+          <p>Preview unavailable</p>
+          <span className="editor-binary-hint">{openFile.name}</span>
+        </div>
+      )}
 
       {/* Empty state — shown when no file is open */}
       {!openFile && (

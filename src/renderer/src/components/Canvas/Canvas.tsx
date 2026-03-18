@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 import { useWorkspace } from '../../store/useWorkspace'
@@ -58,27 +58,32 @@ export default function Canvas() {
   const areaRef = useRef<HTMLDivElement>(null)
   const clearEdgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const centeredPathRef = useRef<string | null>(null)
-  const { data, updateNode, setViewport, addNode, addEdge, removeNode, updateEdge, undo, redo } = useArtifacts()
+  const { data, updateNode, setViewport, addNode, addEdge, removeNode, removeEdge, updateEdge, undo, redo } = useArtifacts()
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useCanvas(areaRef)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [connectionFromId, setConnectionFromId] = useState<string | null>(null)
   const [connectionCursor, setConnectionCursor] = useState<{ x: number; y: number } | null>(null)
   const [connectionMode, setConnectionMode] = useState(false)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+  const [moveMode, setMoveMode] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string; edgeId?: string } | null>(null)
   const [selectionBox, setSelectionBox] = useState<{ start: { x: number; y: number }; end: { x: number; y: number }; active: boolean } | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null)
   const [selectionMode, setSelectionMode] = useState(false)
   const [filePreviews, setFilePreviews] = useState<Record<string, { content: string } | { error: true }>>({})
   const filePreviewsLoadingRef = useRef<Set<string>>(new Set())
+  const [addLinkDialog, setAddLinkDialog] = useState<{ x: number; y: number } | null>(null)
+  const [addLinkUrl, setAddLinkUrl] = useState('')
+  const addLinkInputRef = useRef<HTMLInputElement>(null)
   const { nodes, edges, viewport } = data
   const canvasPath = useArtifacts((s) => s.canvasPath)
   const workspacePath = useWorkspace((s) => s.workspaces[s.activeWorkspaceIndex]?.path ?? '')
 
-  // Load file contents for file nodes: cache by raw node.content so lookup in CanvasNode matches
+  // Load file contents for file nodes: cache by raw node.content so lookup in CanvasNode matches (skip PDF – rendered via iframe)
   useEffect(() => {
     const fileNodes = nodes.filter(
-      (n): n is typeof n & { type: 'file'; content: string } => n.type === 'file' && Boolean(n.content.trim())
+      (n): n is typeof n & { type: 'file'; content: string } =>
+        n.type === 'file' && Boolean(n.content.trim()) && !/\.pdf$/i.test(n.content.trim())
     )
     fileNodes.forEach((n) => {
       const rawKey = n.content.trim()
@@ -147,21 +152,28 @@ export default function Canvas() {
         setSelectionMode((prev) => !prev)
         return
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
-        e.preventDefault()
-        selectedIds.forEach((id) => {
-          const node = nodes.find((n) => n.id === id)
-          if (node?.type === 'group' && node.childIds?.length) {
-            node.childIds.forEach((cid) => removeNode(cid))
-          }
-          removeNode(id)
-        })
-        setSelectedIds(new Set())
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedEdgeId) {
+          e.preventDefault()
+          removeEdge(selectedEdgeId)
+          setSelectedEdgeId(null)
+          setEditingEdgeId(null)
+        } else if (selectedIds.size > 0) {
+          e.preventDefault()
+          selectedIds.forEach((id) => {
+            const node = nodes.find((n) => n.id === id)
+            if (node?.type === 'group' && node.childIds?.length) {
+              node.childIds.forEach((cid) => removeNode(cid))
+            }
+            removeNode(id)
+          })
+          setSelectedIds(new Set())
+        }
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [selectedIds, nodes, removeNode, undo, redo])
+  }, [selectedIds, selectedEdgeId, nodes, removeNode, removeEdge, undo, redo])
 
   const openFiles = useWorkspace((s) => s.openFiles)
   const activeFileIndex = useWorkspace((s) => s.activeFileIndex)
@@ -191,6 +203,14 @@ export default function Canvas() {
     const el = areaRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement
+      const overScrollableNode =
+        target.closest('.canvas-node-file-wrap') ||
+        target.closest('.canvas-node-embed-wrap') ||
+        target.closest('.canvas-node-content')
+      if (overScrollableNode) {
+        return
+      }
       e.preventDefault()
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
       handleZoom(delta, e.clientX, e.clientY)
@@ -238,6 +258,33 @@ export default function Canvas() {
     },
     [viewport]
   )
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target?.closest?.('input') || target?.closest?.('textarea')) return
+      const text = (e.clipboardData?.getData('text/plain') ?? '').trim()
+      if (!/^https?:\/\/[^\s]+$/i.test(text)) return
+      e.preventDefault()
+      const el = areaRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const centerClientX = rect.left + rect.width / 2
+      const centerClientY = rect.top + rect.height / 2
+      const { x, y } = getCanvasCoords(centerClientX, centerClientY)
+      addNode({
+        type: 'link',
+        x: Math.max(0, x - 160),
+        y: Math.max(0, y - 100),
+        width: 320,
+        height: 200,
+        content: text,
+        embed: true
+      })
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [getCanvasCoords, addNode])
 
   const handleNodeSelect = useCallback((nodeId: string, addToSelection: boolean) => {
     if (addToSelection) {
@@ -413,6 +460,7 @@ export default function Canvas() {
       width: maxX - minX + 24,
       height: maxY - minY + 24,
       content: '',
+      title: 'Group',
       childIds: selectedNodes.map((n) => n.id)
     })
   }, [selectedNodes, addNode])
@@ -422,9 +470,17 @@ export default function Canvas() {
       const group = nodes.find((n) => n.id === groupId)
       if (!group || group.type !== 'group') return
       updateNode(groupId, { x: group.x + dx, y: group.y + dy })
-      ;(group.childIds ?? []).forEach((cid) => {
-        const child = nodes.find((n) => n.id === cid)
-        if (child) updateNode(cid, { x: child.x + dx, y: child.y + dy })
+      const childIdSet = new Set(group.childIds ?? [])
+      nodes.forEach((n) => {
+        if (n.id === groupId || n.type === 'group') return
+        const insideBounds =
+          n.x >= group.x &&
+          n.y >= group.y &&
+          n.x + n.width <= group.x + group.width &&
+          n.y + n.height <= group.y + group.height
+        if (childIdSet.has(n.id) || insideBounds) {
+          updateNode(n.id, { x: n.x + dx, y: n.y + dy })
+        }
       })
     },
     [nodes, updateNode]
@@ -437,12 +493,19 @@ export default function Canvas() {
       const x = Math.max(0, snapToGrid(group.x))
       const y = Math.max(0, snapToGrid(group.y))
       if (x !== group.x || y !== group.y) updateNode(groupId, { x, y })
-      ;(group.childIds ?? []).forEach((cid) => {
-        const child = nodes.find((n) => n.id === cid)
-        if (!child) return
-        const cx = Math.max(0, snapToGrid(child.x))
-        const cy = Math.max(0, snapToGrid(child.y))
-        if (cx !== child.x || cy !== child.y) updateNode(cid, { x: cx, y: cy })
+      const childIdSet = new Set(group.childIds ?? [])
+      nodes.forEach((n) => {
+        if (n.id === groupId || n.type === 'group') return
+        const insideBounds =
+          n.x >= group.x &&
+          n.y >= group.y &&
+          n.x + n.width <= group.x + group.width &&
+          n.y + n.height <= group.y + group.height
+        if (childIdSet.has(n.id) || insideBounds) {
+          const cx = Math.max(0, snapToGrid(n.x))
+          const cy = Math.max(0, snapToGrid(n.y))
+          if (cx !== n.x || cy !== n.y) updateNode(n.id, { x: cx, y: cy })
+        }
       })
     },
     [nodes, updateNode]
@@ -466,6 +529,73 @@ export default function Canvas() {
       content: ''
     })
   }, [getCanvasCoords, addNode])
+
+  const handleAddLinkAtViewportCenter = useCallback(() => {
+    const el = areaRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const centerClientX = rect.left + rect.width / 2
+    const centerClientY = rect.top + rect.height / 2
+    const { x, y } = getCanvasCoords(centerClientX, centerClientY)
+    const pos = { x: Math.max(0, x - 160), y: Math.max(0, y - 100) }
+    const addLinkNode = (url: string) => {
+      const trimmed = url.trim()
+      if (!trimmed || !/^https?:\/\//i.test(trimmed)) return
+      addNode({
+        type: 'link',
+        x: pos.x,
+        y: pos.y,
+        width: 320,
+        height: 200,
+        content: trimmed,
+        embed: true
+      })
+    }
+    navigator.clipboard.readText().then((clip) => {
+      const url = clip?.trim() ?? ''
+      if (url && /^https?:\/\//i.test(url)) {
+        addLinkNode(url)
+      } else {
+        setAddLinkUrl(url || 'https://')
+        setAddLinkDialog(pos)
+        requestAnimationFrame(() => addLinkInputRef.current?.focus())
+      }
+    }).catch(() => {
+      setAddLinkUrl('https://')
+      setAddLinkDialog(pos)
+      requestAnimationFrame(() => addLinkInputRef.current?.focus())
+    })
+  }, [getCanvasCoords, addNode])
+
+  useEffect(() => {
+    if (addLinkDialog) {
+      addLinkInputRef.current?.focus()
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setAddLinkDialog(null)
+          setAddLinkUrl('')
+        }
+      }
+      document.addEventListener('keydown', onKey)
+      return () => document.removeEventListener('keydown', onKey)
+    }
+  }, [addLinkDialog])
+
+  const handleAddLinkSubmit = useCallback(() => {
+    const trimmed = addLinkUrl.trim()
+    if (!trimmed || !/^https?:\/\//i.test(trimmed) || !addLinkDialog) return
+    addNode({
+      type: 'link',
+      x: addLinkDialog.x,
+      y: addLinkDialog.y,
+      width: 320,
+      height: 200,
+      content: trimmed,
+      embed: true
+    })
+    setAddLinkDialog(null)
+    setAddLinkUrl('')
+  }, [addLinkDialog, addLinkUrl, addNode])
 
   const handleClose = () => {
     closeTab(activeFileIndex)
@@ -502,39 +632,81 @@ export default function Canvas() {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
+      e.stopPropagation()
       let filePath: string | null = null
-      const treePath = e.dataTransfer.getData('application/x-asterisk-tree-path')
+      const treePath = (e.dataTransfer.getData('application/x-asterisk-tree-path') || '').trim()
+      const plain = (e.dataTransfer.getData('text/plain') || '').trim()
       if (treePath) {
         filePath = treePath.startsWith('/') || /^[A-Za-z]:/.test(treePath) ? treePath : resolvePath(workspacePath, treePath)
       } else if (e.dataTransfer.files?.length) {
         filePath = getDroppedFilePath(e)
-      } else {
-        const plain = e.dataTransfer.getData('text/plain')
-        const match = plain && /^\[([^\]]*)\]\((.*)\)$/.exec(plain)
+      } else if (plain) {
+        if (/^https?:\/\/[^\s]+$/i.test(plain)) {
+          const { x, y } = getCanvasCoords(e.clientX, e.clientY)
+          addNode({
+            type: 'link',
+            x,
+            y,
+            width: 320,
+            height: 200,
+            content: plain.trim(),
+            embed: true
+          })
+          return
+        }
+        const match = /^\[([^\]]*)\]\((.*)\)$/.exec(plain)
         if (match) {
-          filePath = resolvePath(workspacePath, match[2].trim())
+          const url = match[2].trim()
+          if (/^https?:\/\//i.test(url)) {
+            const { x, y } = getCanvasCoords(e.clientX, e.clientY)
+            addNode({
+              type: 'link',
+              x,
+              y,
+              width: 320,
+              height: 200,
+              content: url,
+              embed: true
+            })
+            return
+          }
+          filePath = resolvePath(workspacePath, url)
+        } else {
+          filePath = resolvePath(workspacePath, plain)
         }
       }
-      if (!filePath) return
-      const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'))
+      if (!filePath?.trim()) return
+      const absolutePath = (filePath.startsWith('/') || /^[A-Za-z]:/.test(filePath))
+        ? filePath.trim()
+        : (workspacePath ? resolvePath(workspacePath, filePath.trim()) : filePath.trim())
+      const ext = absolutePath.toLowerCase().slice(absolutePath.lastIndexOf('.'))
       const { x, y } = getCanvasCoords(e.clientX, e.clientY)
-      if (ext === '.md' || ext === '.markdown' || ext === '.txt') {
+      if (ext === '.pdf') {
+        addNode({
+          type: 'file',
+          x,
+          y,
+          width: 360,
+          height: 480,
+          content: absolutePath
+        })
+      } else if (ext === '.md' || ext === '.markdown' || ext === '.txt') {
         addNode({
           type: 'file',
           x,
           y,
           width: 280,
           height: 160,
-          content: filePath
+          content: absolutePath
         })
-      } else if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(ext)) {
+      } else if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.heic', '.heif', '.avif'].includes(ext)) {
         addNode({
           type: 'image',
           x,
           y,
           width: 240,
           height: 160,
-          content: filePath
+          content: absolutePath
         })
       } else {
         addNode({
@@ -543,7 +715,7 @@ export default function Canvas() {
           y,
           width: 280,
           height: 120,
-          content: filePath
+          content: absolutePath
         })
       }
     },
@@ -567,12 +739,15 @@ export default function Canvas() {
       <div className="canvas-toolbar-bar">
         <CanvasToolbar
           onAddCard={handleAddCardAtViewportCenter}
+          onAddLink={handleAddLinkAtViewportCenter}
           onZoomIn={() => handleZoom(ZOOM_STEP)}
           onZoomOut={() => handleZoom(-ZOOM_STEP)}
           onZoomReset={() => setViewport({ zoom: 1, x: 0, y: 0 })}
           connectionMode={connectionMode}
           onConnectionModeToggle={() => setConnectionMode((m) => !m)}
           canAlign={canAlign}
+          moveMode={moveMode}
+          onMoveModeToggle={() => setMoveMode((m) => !m)}
           onAlign={handleAlign}
           canDistribute={selectedNodes.length >= 3}
           onDistribute={handleDistribute}
@@ -584,7 +759,7 @@ export default function Canvas() {
       </div>
       <div
         ref={areaRef}
-        className="canvas-area"
+        className={`canvas-area${connectionMode ? ' canvas-area-connection-mode' : ''}${moveMode ? ' canvas-area-move-mode' : ''}`}
         onPointerDown={handleBoardPointerDown}
         onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
@@ -656,6 +831,7 @@ export default function Canvas() {
                   setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id })
                 }}
                 connectionMode={connectionMode}
+                moveMode={moveMode}
               />
             )})}
           </div>
@@ -672,6 +848,7 @@ export default function Canvas() {
                 nodes={nodes}
                 selected={selectedEdgeId === edge.id}
                 editingLabel={editingEdgeId === edge.id}
+                showEditUI={!moveMode && (!contextMenu?.edgeId || contextMenu.edgeId !== edge.id)}
                 onSelect={() => {
                   if (clearEdgeTimeoutRef.current) {
                     clearTimeout(clearEdgeTimeoutRef.current)
@@ -683,6 +860,16 @@ export default function Canvas() {
                 onLabelChange={(label) => updateEdge(edge.id, { label })}
                 onLabelEditEnd={() => setEditingEdgeId(null)}
                 onColorChange={(color) => updateEdge(edge.id, { color })}
+                onContextMenu={(e: React.MouseEvent) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (clearEdgeTimeoutRef.current) {
+                    clearTimeout(clearEdgeTimeoutRef.current)
+                    clearEdgeTimeoutRef.current = null
+                  }
+                  setSelectedEdgeId(edge.id)
+                  setContextMenu({ x: e.clientX, y: e.clientY, edgeId: edge.id })
+                }}
                 getScreenPoint={(canvasX, canvasY) => {
                   const area = areaRef.current?.getBoundingClientRect()
                   if (!area) return { x: 0, y: 0 }
@@ -725,22 +912,130 @@ export default function Canvas() {
             {connectionFromId ? 'Click second node to connect' : 'Click first node to connect'}
           </div>
         )}
-        {contextMenu && (
+        {contextMenu?.nodeId && (() => {
+          const nid = contextMenu.nodeId
+          const contextNode = nodes.find((n) => n.id === nid)
+          const isGroup = contextNode?.type === 'group'
+          const currentGroup = contextNode && !isGroup ? groupNodes.find((g) => {
+            if (g.childIds?.includes(nid)) return true
+            return (
+              contextNode.x >= g.x &&
+              contextNode.y >= g.y &&
+              contextNode.x + contextNode.width <= g.x + g.width &&
+              contextNode.y + contextNode.height <= g.y + g.height
+            )
+          }) : undefined
+          const nodeInChildIds = currentGroup?.childIds?.includes(nid) ?? false
+          return (
+            <CanvasContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              nodeId={nid}
+              groups={isGroup ? [] : groupNodes.filter((g) => g.id !== nid && g.id !== currentGroup?.id).map((g) => ({ id: g.id, title: g.title || 'Unnamed' }))}
+              currentGroupId={currentGroup?.id}
+              onClose={() => setContextMenu(null)}
+              onDelete={(id) => {
+                const node = nodes.find((n) => n.id === id)
+                if (node?.type === 'group' && node.childIds?.length) {
+                  node.childIds.forEach((cid) => removeNode(cid))
+                }
+                removeNode(id)
+                setSelectedIds((s) => { const n = new Set(s); n.delete(id); if (node?.childIds) node.childIds.forEach((c) => n.delete(c)); return n })
+                setContextMenu(null)
+              }}
+              onAddToGroup={(nodeId, groupId) => {
+                const group = nodes.find((n) => n.id === groupId)
+                if (!group || group.type !== 'group') return
+                const existingChildIds = group.childIds ?? []
+                if (!existingChildIds.includes(nodeId)) {
+                  updateNode(groupId, { childIds: [...existingChildIds, nodeId] })
+                }
+              }}
+              onRemoveFromGroup={(nodeId, groupId) => {
+                const group = nodes.find((n) => n.id === groupId)
+                if (!group || group.type !== 'group') return
+                const newChildIds = (group.childIds ?? []).filter((cid) => cid !== nodeId)
+                updateNode(groupId, { childIds: newChildIds })
+                const node = nodes.find((n) => n.id === nodeId)
+                if (node) {
+                  updateNode(nodeId, { x: node.x + group.width + 20, y: node.y })
+                }
+              }}
+            />
+          )
+        })()}
+        {contextMenu?.edgeId && (
           <CanvasContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            nodeId={contextMenu.nodeId}
+            edgeId={contextMenu.edgeId}
             onClose={() => setContextMenu(null)}
-            onDelete={(id) => {
-              const node = nodes.find((n) => n.id === id)
-              if (node?.type === 'group' && node.childIds?.length) {
-                node.childIds.forEach((cid) => removeNode(cid))
-              }
-              removeNode(id)
-              setSelectedIds((s) => { const n = new Set(s); n.delete(id); if (node?.childIds) node.childIds.forEach((c) => n.delete(c)); return n })
+            onDeleteEdge={(edgeId: string) => {
+              removeEdge(edgeId)
+              setSelectedEdgeId(null)
+              setEditingEdgeId(null)
               setContextMenu(null)
             }}
           />
+        )}
+        {addLinkDialog && (
+          <div
+            className="canvas-add-link-backdrop"
+            onClick={() => { setAddLinkDialog(null); setAddLinkUrl('') }}
+            role="presentation"
+          >
+            <div
+              className="canvas-add-link-dialog"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label="Add link"
+            >
+              <label className="canvas-add-link-label" htmlFor="canvas-add-link-url">Enter URL (website or YouTube)</label>
+              <input
+                id="canvas-add-link-url"
+                ref={addLinkInputRef}
+                type="url"
+                className="canvas-add-link-input"
+                value={addLinkUrl}
+                onChange={(e) => setAddLinkUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddLinkSubmit()
+                  }
+                }}
+                placeholder="https://"
+              />
+              <div className="canvas-add-link-actions">
+                <button
+                  type="button"
+                  className="canvas-add-link-btn canvas-add-link-cancel"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setAddLinkDialog(null)
+                    setAddLinkUrl('')
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="canvas-add-link-btn canvas-add-link-submit"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleAddLinkSubmit()
+                  }}
+                >
+                  Add link
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

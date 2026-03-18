@@ -245,10 +245,20 @@
   height: 26px;
   justify-content: center;
   background: transparent;
+  color: #999;
+}
+
+.note-date-picker-btn-icon svg {
+  stroke: #999;
 }
 
 .note-date-picker-btn-icon:hover {
   background: var(--bg-hover);
+  color: #ccc;
+}
+
+.note-date-picker-btn-icon:hover svg {
+  stroke: #ccc;
 }
 
 .note-date-picker-clear {
@@ -309,6 +319,17 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
+  color: var(--text-primary);
+  color-scheme: dark;
+}
+
+.note-date-picker-datetime::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.note-date-picker-datetime::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.9);
   color: var(--text-primary);
   min-width: 0;
 }

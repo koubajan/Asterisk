@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
 import type { CanvasNode as CanvasNodeType } from '../../types/canvas'
+import { asteriskFileUrl } from '../../utils/imageUrl'
 
 /** File preview type for artifact file nodes */
 type FilePreviewType = 'markdown' | 'code' | 'csv' | 'yaml' | 'plain' | 'error' | null
@@ -35,6 +36,8 @@ interface CanvasNodeProps {
   onShiftClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   connectionMode?: boolean
+  /** When true, only dragging is allowed (no resize, edit, or color picker). */
+  moveMode?: boolean
   /** When set, use this instead of loading file content in the node (Canvas loads and passes down). */
   filePreviewContent?: string | null
   filePreviewError?: boolean
@@ -56,16 +59,41 @@ function resolveImagePath(workspacePath: string, relOrAbs: string): string {
   return relOrAbs.startsWith('./') ? `${base}/${relOrAbs.slice(2)}` : `${base}/${relOrAbs}`
 }
 
-/** Return dark or light text color for readability on the given background. */
+/** When a custom background is set (not reset), use black text. Reset/default keeps theme text. */
 function getContrastColor(bg: string): string {
   if (!bg || bg.startsWith('var(')) return ''
   const hex = bg.replace(/^#/, '')
   if (hex.length !== 6 && hex.length !== 8) return ''
-  const r = parseInt(hex.slice(0, 2), 16)
-  const g = parseInt(hex.slice(2, 4), 16)
-  const b = parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.5 ? '#1a1a1a' : '#f5f5f5'
+  return '#1a1a1a'
+}
+
+/** YouTube watch or short URL -> embed URL. Returns null if not YouTube. */
+function getYouTubeEmbedUrl(url: string): string | null {
+  if (!url || !/youtube\.com|youtu\.be/i.test(url)) return null
+  try {
+    const u = new URL(url.trim())
+    if (/youtu\.be/i.test(u.hostname)) {
+      const id = u.pathname.slice(1).split(/[?/]/)[0]
+      return id ? `https://www.youtube.com/embed/${id}` : null
+    }
+    const v = u.searchParams.get('v')
+    return v ? `https://www.youtube.com/embed/${v}` : null
+  } catch {
+    return null
+  }
+}
+
+function isYouTubeUrl(url: string): boolean {
+  return /youtube\.com|youtu\.be/i.test(url ?? '')
+}
+
+/** Resolve file node content to absolute path for protocol. */
+function resolveFilePath(workspacePath: string, content: string): string {
+  const raw = (content ?? '').trim().replace(/^file:\/\/+/i, '').replace(/\\/g, '/')
+  if (!raw) return ''
+  if (raw.startsWith('/') || /^[A-Za-z]:[/\\]/i.test(raw)) return raw
+  const base = workspacePath.replace(/\/$/, '')
+  return raw.startsWith('./') ? `${base}/${raw.slice(2)}` : `${base}/${raw}`
 }
 
 function getCardTitle(node: CanvasNodeType): string {
@@ -89,6 +117,8 @@ const NODE_HEADER_HEIGHT = 28
 const NODE_CONTENT_PADDING = 12
 const NODE_DEFAULT_WIDTH = 200
 const NODE_DEFAULT_HEIGHT = 60
+const IMAGE_NODE_MAX_WIDTH = 420
+const IMAGE_NODE_MAX_HEIGHT = 340
 
 /** Same palette as groups for consistent color options everywhere */
 const PRESET_COLORS = [
@@ -96,7 +126,7 @@ const PRESET_COLORS = [
   '#bbdefb', '#c8e6c9', '#ffe0b2', '#f8bbd9', '#d1c4e9'
 ]
 
-export default function CanvasNode({ node, workspacePath = '', filePreviewContent, filePreviewError, onDrag, onDragEnd, onSelect, selected, onDoubleClick, onContentChange, onTitleChange, onUpdate, onResize, onShiftClick, onContextMenu, connectionMode }: CanvasNodeProps) {
+export default function CanvasNode({ node, workspacePath = '', filePreviewContent, filePreviewError, onDrag, onDragEnd, onSelect, selected, onDoubleClick, onContentChange, onTitleChange, onUpdate, onResize, onShiftClick, onContextMenu, connectionMode, moveMode }: CanvasNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -110,8 +140,11 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
   const [filePreview, setFilePreview] = useState<string | null>(null)
   const [filePreviewType, setFilePreviewType] = useState<FilePreviewType>(null)
   const [linkPreview, setLinkPreview] = useState<{ title?: string; description?: string; image?: string } | null>(null)
+  const [linkPreviewImageDataUrl, setLinkPreviewImageDataUrl] = useState<string | null>(null)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null)
+  const [imageUseProtocol, setImageUseProtocol] = useState(true)
   const editInputRef = useRef<HTMLTextAreaElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -121,6 +154,7 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
   const lastResizedForPreviewRef = useRef<string | null>(null)
+  const imageSizedForRef = useRef<string | null>(null)
 
   useLayoutEffect(() => {
     if (!showColorPicker || !colorPickerAnchorRef.current || !nodeRootRef.current) {
@@ -196,10 +230,22 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
         setFilePreview(filePreviewContent.slice(0, 3000))
       } else if (MARKDOWN_RE.test(path)) {
         setFilePreviewType('markdown')
-        setFilePreview(filePreviewContent.slice(0, 400).trim())
+        setFilePreview(filePreviewContent.trim())
       } else {
-        setFilePreviewType('plain')
-        setFilePreview(filePreviewContent.slice(0, 400).trim())
+        // Heuristic: treat mostly-binary content as non-text → no preview
+        const sample = filePreviewContent.slice(0, 400)
+        const nonPrintable = sample.split('').filter((ch) => {
+          const code = ch.charCodeAt(0)
+          return (code < 9 || (code > 13 && code < 32)) || ch === '\uFFFD'
+        }).length
+        const ratio = nonPrintable / Math.max(sample.length, 1)
+        if (ratio > 0.15) {
+          setFilePreview(null)
+          setFilePreviewType('error')
+        } else {
+          setFilePreviewType('plain')
+          setFilePreview(sample.trim())
+        }
       }
       return
     }
@@ -210,24 +256,46 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
   useEffect(() => {
     if (node.type === 'link' && node.content && /^https?:\/\//i.test(node.content)) {
       let cancelled = false
-      fetch(node.content, { method: 'HEAD', mode: 'no-cors' }).catch(() => null)
-      fetch(node.content)
-        .then((r) => r.text())
-        .then((html) => {
+      if (window.asterisk?.fetchUrlText) {
+        window.asterisk.fetchUrlText(node.content).then((r) => {
           if (cancelled) return
-          const doc = new DOMParser().parseFromString(html, 'text/html')
+          if (!r.ok || !r.data?.text) {
+            setLinkPreview(null)
+            return
+          }
+          const doc = new DOMParser().parseFromString(r.data.text, 'text/html')
           const getMeta = (name: string) => doc.querySelector(`meta[property="og:${name}"], meta[name="${name}"]`)?.getAttribute('content')
           setLinkPreview({
             title: getMeta('title') ?? undefined,
             description: getMeta('description') ?? undefined,
             image: getMeta('image') ?? undefined
           })
-        })
-        .catch(() => setLinkPreview(null))
+        }).catch(() => setLinkPreview(null))
+      } else {
+        setLinkPreview(null)
+      }
       return () => { cancelled = true }
     }
     setLinkPreview(null)
+    setLinkPreviewImageDataUrl(null)
   }, [node.type, node.content])
+
+  useEffect(() => {
+    const imageUrl = linkPreview?.image
+    if (!imageUrl || !window.asterisk?.fetchImageDataUrl) {
+      setLinkPreviewImageDataUrl(null)
+      return
+    }
+    let cancelled = false
+    window.asterisk.fetchImageDataUrl(imageUrl).then((r) => {
+      if (cancelled) return
+      if (r.ok && r.data?.dataUrl) setLinkPreviewImageDataUrl(r.data.dataUrl)
+      else setLinkPreviewImageDataUrl(null)
+    }).catch(() => {
+      if (!cancelled) setLinkPreviewImageDataUrl(null)
+    })
+    return () => { cancelled = true }
+  }, [linkPreview?.image])
 
   useEffect(() => {
     if (isEditing) {
@@ -245,49 +313,49 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
     if (node.type !== 'image' || !node.content) {
       setImageDataUrl(null)
       setImageLoadFailed(false)
+      setImageLoadError(null)
+      imageSizedForRef.current = null
       return
     }
-    const raw = node.content.replace(/^file:\/\/+/, '').replace(/^\/([A-Za-z]:)/, '$1').trim()
-    if (!raw) {
+    const raw = node.content.replace(/^file:\/\/+/i, '').replace(/^\/([A-Za-z]:)/, '$1').trim()
+    if (!raw || raw.startsWith('http')) {
       setImageDataUrl(null)
       setImageLoadFailed(false)
+      setImageLoadError(null)
       return
     }
-    if (raw.startsWith('http')) {
-      setImageDataUrl(node.content)
-      setImageLoadFailed(false)
-      return
-    }
+    setImageDataUrl(null)
     setImageLoadFailed(false)
-    const absolutePath = raw.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw)
-      ? raw.replace(/\\/g, '/')
-      : (workspacePath ? resolveImagePath(workspacePath, raw) : raw)
+    setImageLoadError(null)
+    setImageUseProtocol(false)
+  }, [node.type, node.content, workspacePath])
+
+  useEffect(() => {
+    if (node.type !== 'image' || !node.content || imageUseProtocol || !window.asterisk?.readImageAsDataUrl) return
+    const raw = node.content.replace(/^file:\/\/+/i, '').replace(/^\/([A-Za-z]:)/, '$1').trim()
+    if (!raw || raw.startsWith('http')) return
+    const abs = (raw.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw)) ? raw.replace(/\\/g, '/') : (workspacePath ? resolveImagePath(workspacePath, raw) : raw)
     let cancelled = false
-    const timeout = setTimeout(() => {
-      if (!cancelled) {
-        setImageDataUrl(null)
-        setImageLoadFailed(true)
-      }
-    }, 15000)
-    window.asterisk.readImageAsDataUrl(absolutePath).then((r) => {
+    window.asterisk.readImageAsDataUrl(abs).then((r) => {
       if (cancelled) return
-      clearTimeout(timeout)
-      if (r.ok && r.data?.dataUrl) {
-        setImageDataUrl(r.data.dataUrl)
+      const data = r?.ok ? r?.data?.dataUrl : null
+      const valid = typeof data === 'string' && data.startsWith('data:') && data.length > 100
+      if (valid) {
+        setImageDataUrl(data)
         setImageLoadFailed(false)
+        setImageLoadError(null)
       } else {
-        setImageDataUrl(null)
         setImageLoadFailed(true)
+        setImageLoadError(r?.error ?? 'Failed to load')
       }
-    }).catch(() => {
+    }).catch((err) => {
       if (!cancelled) {
-        clearTimeout(timeout)
-        setImageDataUrl(null)
         setImageLoadFailed(true)
+        setImageLoadError(err?.message ?? 'Failed to load')
       }
     })
-    return () => { cancelled = true; clearTimeout(timeout) }
-  }, [node.type, node.content, workspacePath])
+    return () => { cancelled = true }
+  }, [node.type, node.content, workspacePath, imageUseProtocol])
 
   useEffect(() => {
     if (isEditingTitle) titleInputRef.current?.focus()
@@ -316,10 +384,37 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
     // Omit node.height / node.width from deps to avoid loop: updating them would re-run and re-update
   }, [node.content, node.type, node.width, isEditing, filePreview])
 
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const nw = img.naturalWidth
+    const nh = img.naturalHeight
+    if (!nw || !nh || !onUpdate) return
+    if (imageSizedForRef.current === node.content) return
+    imageSizedForRef.current = node.content
+    const scale = Math.min(IMAGE_NODE_MAX_WIDTH / nw, IMAGE_NODE_MAX_HEIGHT / nh, 1)
+    const w = Math.round(nw * scale)
+    const h = Math.round(nh * scale)
+    const nodeW = Math.max(NODE_DEFAULT_WIDTH, w)
+    const nodeH = NODE_HEADER_HEIGHT + NODE_CONTENT_PADDING + h + NODE_CONTENT_PADDING
+    onUpdate({ width: nodeW, height: nodeH })
+  }
+
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation()
     if ((e.target as HTMLElement).closest('.canvas-node-resize-handle')) return
     if (e.button !== 0) return
+    if (connectionMode && (moveMode ? e.shiftKey : true) && onShiftClick) {
+      onShiftClick()
+      return
+    }
+    if (moveMode) {
+      onSelect(e.ctrlKey || e.metaKey)
+      didDragRef.current = false
+      setIsDragging(true)
+      setDragStart({ x: e.clientX, y: e.clientY })
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      return
+    }
     if (connectionMode && onShiftClick) {
       onShiftClick()
       return
@@ -339,6 +434,18 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
     resizeStartRef.current = { w: node.width, h: node.height, x: e.clientX, y: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
+
+  // End resize when pointer is released or cancelled anywhere (e.g. click away, or over iframe)
+  useEffect(() => {
+    if (!isResizing) return
+    const endResize = () => setIsResizing(false)
+    document.addEventListener('pointerup', endResize)
+    document.addEventListener('pointercancel', endResize)
+    return () => {
+      document.removeEventListener('pointerup', endResize)
+      document.removeEventListener('pointercancel', endResize)
+    }
+  }, [isResizing])
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (isResizing) {
@@ -368,6 +475,7 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (moveMode) return
     if (canEdit) {
       setIsEditing(true)
     }
@@ -397,10 +505,22 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
   const bg = node.backgroundColor ?? 'var(--bg-elevated)'
   const textContrast = getContrastColor(bg)
 
+  const contentAreaWidth = node.width - 24
+  const contentAreaHeight = node.height - 28 - 24
+  const embedScale = Math.max(
+    contentAreaWidth / 800,
+    contentAreaHeight / 600
+  )
+  const cardScale = Math.min(
+    contentAreaWidth / 320,
+    contentAreaHeight / 240,
+    1
+  )
+
   return (
     <div
       ref={nodeRootRef}
-      className={`canvas-node${textContrast ? ' canvas-node-custom-bg' : ''}`}
+      className={`canvas-node${textContrast ? ' canvas-node-custom-bg' : ''}${isResizing ? ' canvas-node-resizing' : ''}${moveMode ? ' canvas-node-move-mode' : ''}`}
       style={{
         left: node.x,
         top: node.y,
@@ -435,13 +555,13 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
         ) : (
           <span
             className="canvas-node-title-text"
-            onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true) }}
-            title="Click to edit title"
+            onClick={(e) => { e.stopPropagation(); if (!moveMode) setIsEditingTitle(true) }}
+            title={moveMode ? undefined : 'Click to edit title'}
           >
             {displayTitle}
           </span>
         )}
-        {onUpdate && (
+        {onUpdate && !moveMode && (
           <div className="canvas-node-header-actions" ref={colorPickerAnchorRef}>
             <button
               type="button"
@@ -542,14 +662,14 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
             <div className="canvas-node-pdf-wrap">
               <iframe
                 title="PDF"
-                src={node.content?.startsWith('file://') ? node.content : `file://${node.content}`}
+                src={`${asteriskFileUrl(resolveFilePath(workspacePath, node.content ?? ''))}#toolbar=0`}
                 className="canvas-node-pdf"
               />
             </div>
           ) : (
             <div className="canvas-node-file-wrap">
               {filePreviewType === 'error' ? (
-                <div className="canvas-node-preview canvas-node-preview-error">Couldn’t load preview</div>
+                <div className="canvas-node-preview canvas-node-preview-error">Preview unavailable</div>
               ) : filePreview === null && node.content ? (
                 <div className="canvas-node-preview canvas-node-preview-loading">Loading…</div>
               ) : filePreview
@@ -613,46 +733,155 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
               }}
               onClick={(e) => e.stopPropagation()}
             />
+          ) : node.content && node.embed !== false ? (
+            <div className="canvas-node-embed-wrap">
+              <div
+                className="canvas-node-embed-scaler"
+                style={{
+                  width: 800,
+                  height: 600,
+                  transform: `scale(${embedScale})`,
+                  transformOrigin: '0 0'
+                }}
+              >
+                <iframe
+                  title="Embedded content"
+                  src={getYouTubeEmbedUrl(node.content) ?? node.content}
+                  className="canvas-node-embed-iframe"
+                />
+              </div>
+              <div className="canvas-node-embed-actions">
+                {window.asterisk?.openExternalUrl && (
+                  <a
+                    href={node.content}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="canvas-node-embed-open-browser"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      window.asterisk?.openExternalUrl(node.content ?? '')
+                    }}
+                  >
+                    Can't embed? Open in browser
+                  </a>
+                )}
+                {onUpdate && (
+                  <button
+                    type="button"
+                    className="canvas-node-embed-toggle"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ embed: false }) }}
+                    title="Show as card"
+                  >
+                    Show as card
+                  </button>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="canvas-node-link-wrap">
-              {linkPreview?.image && (
-                <div className="canvas-node-link-image">
-                  <img src={linkPreview.image} alt="" />
+              <div
+                className="canvas-node-link-scaler"
+                style={{
+                  width: 320,
+                  height: 240,
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: '0 0'
+                }}
+              >
+                {onUpdate && node.content && (
+                  <button
+                    type="button"
+                    className="canvas-node-link-embed-btn"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ embed: true }) }}
+                    title="Embed in frame (website or YouTube)"
+                  >
+                    Embed
+                  </button>
+                )}
+                {linkPreview?.image && (
+                  <div className="canvas-node-link-image">
+                    <img src={linkPreviewImageDataUrl ?? linkPreview.image} alt="" draggable={false} />
+                  </div>
+                )}
+                <div className="canvas-node-link-body">
+                  {linkPreview?.title && <div className="canvas-node-link-title">{linkPreview.title}</div>}
+                  {linkPreview?.description && <div className="canvas-node-link-desc">{linkPreview.description}</div>}
+                  <a
+                    href={node.content || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="canvas-node-link-url"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {node.content || 'URL'}
+                  </a>
                 </div>
-              )}
-              <div className="canvas-node-link-body">
-                {linkPreview?.title && <div className="canvas-node-link-title">{linkPreview.title}</div>}
-                {linkPreview?.description && <div className="canvas-node-link-desc">{linkPreview.description}</div>}
-                <a
-                  href={node.content || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="canvas-node-link-url"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {node.content || 'URL'}
-                </a>
               </div>
             </div>
           )
         )}
         {node.type === 'image' && (
           <div className="canvas-node-image">
-            {imageDataUrl ? (
-              <img src={imageDataUrl} alt="" loading="lazy" />
-            ) : node.content && node.content.startsWith('http') ? (
-              <img src={node.content} alt="" loading="lazy" />
-            ) : imageLoadFailed ? (
-              <span className="canvas-node-image-loading">Failed to load image</span>
+            {node.content?.startsWith('http') ? (
+              <img
+                src={node.content}
+                alt=""
+                draggable={false}
+                loading="lazy"
+                onLoad={handleImageLoad}
+                onError={() => { setImageLoadFailed(true); setImageLoadError('Failed to load') }}
+              />
+            ) : imageDataUrl ? (
+              <img src={imageDataUrl} alt="" draggable={false} loading="lazy" onLoad={handleImageLoad} />
             ) : node.content ? (
-              <span className="canvas-node-image-loading">Loading…</span>
+              imageLoadFailed ? (
+                <span className="canvas-node-image-loading" title={imageLoadError || undefined}>
+                  {imageLoadError || 'Failed to load image'}
+                </span>
+              ) : imageUseProtocol ? (
+                <img
+                  src={asteriskFileUrl(
+                    (node.content.startsWith('/') || /^[A-Za-z]:[\\/]/.test(node.content))
+                      ? node.content.replace(/\\/g, '/')
+                      : (workspacePath ? resolveImagePath(workspacePath, node.content) : node.content)
+                  )}
+                  alt=""
+                  draggable={false}
+                  loading="lazy"
+                  onLoad={handleImageLoad}
+                  onError={() => {
+                    setImageUseProtocol(false)
+                    const abs = (node.content.startsWith('/') || /^[A-Za-z]:[\\/]/.test(node.content))
+                      ? node.content.replace(/\\/g, '/')
+                      : (workspacePath ? resolveImagePath(workspacePath, node.content) : node.content)
+                    window.asterisk?.readImageAsDataUrl(abs).then((r) => {
+                      const raw = r?.ok ? r?.data?.dataUrl : null
+                      const valid = typeof raw === 'string' && raw.startsWith('data:image') && raw.length > 50
+                      if (valid) {
+                        setImageDataUrl(raw)
+                        setImageLoadFailed(false)
+                        setImageLoadError(null)
+                      } else {
+                        setImageLoadFailed(true)
+                        setImageLoadError(r?.error ?? 'Failed to load')
+                      }
+                    }).catch((err) => {
+                      setImageLoadFailed(true)
+                      setImageLoadError(err?.message ?? 'Failed to load')
+                    })
+                  }}
+                />
+              ) : (
+                <span className="canvas-node-image-loading">Loading…</span>
+              )
             ) : (
               <span>Drop image file or paste URL</span>
             )}
           </div>
         )}
       </div>
-      {onResize && (
+      {onResize && !moveMode && (
         <div
           className="canvas-node-resize-handle"
           onPointerDown={handleResizePointerDown}

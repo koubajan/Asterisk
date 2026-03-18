@@ -17,6 +17,27 @@
   scrollbar-width: none;
 }
 
+.editor-tabs-close-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  padding: 0;
+  margin: 4px 2px 4px 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.editor-tabs-close-all:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .editor-tabs-list::-webkit-scrollbar {
   height: 0;
   display: none;

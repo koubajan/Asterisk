@@ -14,6 +14,8 @@ export interface CanvasNode {
   color?: string
   backgroundColor?: string
   childIds?: string[]
+  /** When true, link nodes show the URL in an iframe (embed) instead of card preview. */
+  embed?: boolean
 }
 
 export interface CanvasEdge {

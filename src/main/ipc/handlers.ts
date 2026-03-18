@@ -1,9 +1,17 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, protocol, nativeImage, net, shell } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs/promises'
+import { readFileSync, existsSync } from 'fs'
 import { buildTree, safeReadFile, safeWriteFile, safeDeleteItem, searchContentInFolder, getScheduledNotesInFolder } from './fileSystem'
 import { sendAIChat } from './ai'
 import type { IpcResult, FolderNode } from '../../preload/types'
+
+let sharp: typeof import('sharp') | null = null
+try {
+  sharp = require('sharp')
+} catch {
+  sharp = null
+}
 
 /** Detect image MIME from buffer magic bytes (avoids extension/PNG issues). */
 function getImageMimeFromBuffer(buf: Buffer): string | null {
@@ -104,6 +112,38 @@ export function registerIpcHandlers(): void {
     })
   )
 
+  // ── Create Excalidraw drawing ─────────────────────────────────────────────
+  const EXCALIDRAW_FOLDER_NAME = 'Excalidraw'
+  ipcMain.handle('fs:create-excalidraw', (_e, workspaceRootPath: string, name: string) =>
+    wrap(async () => {
+      const excalidrawDir = path.join(workspaceRootPath, EXCALIDRAW_FOLDER_NAME)
+      await fs.mkdir(excalidrawDir, { recursive: true })
+      const safeName = name.endsWith('.excalidraw') ? name : `${name}.excalidraw`
+      const fullPath = path.join(excalidrawDir, safeName)
+      const defaultContent = JSON.stringify(
+        {
+          type: 'excalidraw',
+          version: 2,
+          source: 'asterisk',
+          elements: [],
+          appState: { viewBackgroundColor: 'transparent' },
+          files: {}
+        },
+        null,
+        2
+      )
+      await fs.writeFile(fullPath, defaultContent, 'utf-8')
+      const node: FolderNode = {
+        kind: 'file',
+        name: path.basename(fullPath),
+        path: fullPath,
+        children: [],
+        depth: 0
+      }
+      return { node }
+    })
+  )
+
   // ── Create Folder ──────────────────────────────────────────────────────────
   ipcMain.handle('fs:create-folder', (_e, dirPath: string, name: string) =>
     wrap(async () => {
@@ -166,27 +206,116 @@ export function registerIpcHandlers(): void {
     wrap(() => sendAIChat(req as Parameters<typeof sendAIChat>[0]).then((content) => ({ content })))
   )
 
-  // ── Read image as data URL (for canvas image nodes) ─────────────────────────
-  ipcMain.handle('fs:read-image-data-url', (_e, filePath: string) =>
+  // ── Open URL in system browser (for embed-blocked sites) ───────────────────────
+  ipcMain.handle('open-external-url', (_e, url: string) =>
     wrap(async () => {
-      const normalized = path.normalize(String(filePath).replace(/^file:\/\/+/, ''))
-      const buf = await fs.readFile(normalized)
-      const mime =
-        getImageMimeFromBuffer(buf) ??
-        (() => {
-          const ext = path.extname(normalized).toLowerCase()
-          return ext === '.png'
-            ? 'image/png'
-            : ext === '.gif'
-              ? 'image/gif'
-              : ext === '.webp'
-                ? 'image/webp'
-                : ext === '.svg'
-                  ? 'image/svg+xml'
-                  : 'image/jpeg'
-        })()
+      const u = String(url ?? '').trim()
+      if (u && (u.startsWith('http://') || u.startsWith('https://'))) shell.openExternal(u)
+    })
+  )
+
+  // ── Fetch URL text (main process, no CORS) for link preview ───────────────────
+  ipcMain.handle('fetch-url-text', (_e, url: string) =>
+    wrap(async () => {
+      const u = String(url ?? '').trim()
+      if (!u || (!u.startsWith('http://') && !u.startsWith('https://'))) throw new Error('Invalid URL')
+      const res = await net.fetch(u, { method: 'GET' })
+      const text = await res.text()
+      return { text: text.slice(0, 256 * 1024) }
+    })
+  )
+
+  // ── Fetch image URL as data URL (main process, no CORS) for link card preview ─
+  const SAFE_IMAGE_BYTES = 2 * 1024 * 1024 // 2MB cap for preview images
+  ipcMain.handle('fetch-image-data-url', (_e, imageUrl: string) =>
+    wrap(async () => {
+      const u = String(imageUrl ?? '').trim()
+      if (!u || (!u.startsWith('http://') && !u.startsWith('https://'))) throw new Error('Invalid URL')
+      const res = await net.fetch(u, { method: 'GET' })
+      const buf = Buffer.from(await res.arrayBuffer())
+      if (buf.length > SAFE_IMAGE_BYTES) throw new Error('Image too large')
+      const ct = res.headers.get('content-type') || ''
+      const mime = ct.split(';')[0].trim() || 'image/jpeg'
       const base64 = buf.toString('base64')
       return { dataUrl: `data:${mime};base64,${base64}` }
     })
   )
+
+  // ── Read image as data URL: use sharp when available (resize); else raw under cap ─────────
+  const SAFE_RAW_BYTES = 550_000 // ~730k base64; over ~1MB can truncate over IPC
+  ipcMain.handle('fs:read-image-data-url', (_e, filePath: string) =>
+    wrap(async () => {
+      const normalized = normalizeImagePath(filePath)
+      if (!existsSync(normalized)) {
+        throw new Error('File not found')
+      }
+      const raw = await fs.readFile(normalized)
+      const ext = path.extname(normalized).toLowerCase()
+
+      let buf: Buffer
+      let mime: string
+
+      if (ext === '.svg') {
+        if (raw.length > 200_000) throw new Error('SVG too large')
+        mime = 'image/svg+xml'
+        buf = raw
+      } else if (sharp) {
+        try {
+          buf = await sharp(raw)
+            .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 82 })
+            .toBuffer()
+          mime = 'image/jpeg'
+        } catch {
+          if (raw.length > SAFE_RAW_BYTES) throw new Error('Image too large')
+          buf = raw
+          mime = getImageMimeFromBuffer(raw) ?? getMimeFromExt(normalized)
+        }
+      } else {
+        if (raw.length > SAFE_RAW_BYTES) throw new Error('Image too large')
+        buf = raw
+        mime = getImageMimeFromBuffer(raw) ?? getMimeFromExt(normalized)
+      }
+
+      const base64 = buf.toString('base64')
+      return { dataUrl: `data:${mime};base64,${base64}` }
+    })
+  )
+}
+
+function normalizeImagePath(filePath: string): string {
+  let s = String(filePath).trim().replace(/^file:\/\/+/i, '').replace(/\\/g, '/')
+  try {
+    if (s.includes('%')) s = decodeURIComponent(s)
+  } catch { /* leave as-is */ }
+  if (path.isAbsolute(s) || /^[A-Za-z]:[/\\]/.test(s)) return path.normalize(s)
+  return path.normalize(path.resolve(process.cwd(), s))
+}
+
+function getMimeFromExt(normalizedPath: string): string {
+  const ext = path.extname(normalizedPath).toLowerCase()
+  if (ext === '.pdf') return 'application/pdf'
+  return ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg'
+}
+
+/** Register asterisk-file:// so <img src="asterisk-file://local/path"> loads from disk. */
+export function registerImageProtocol(): void {
+  const handler = (request: Request) => {
+    try {
+      const url = new URL(request.url)
+      let pathStr = decodeURIComponent(url.pathname)
+      if (!pathStr || pathStr === '/') return new Response('Not Found', { status: 404 })
+      if (process.platform !== 'win32' && !pathStr.startsWith('/')) pathStr = '/' + pathStr
+      if (process.platform === 'win32' && /^\/[A-Za-z]:/i.test(pathStr)) {
+        pathStr = pathStr.slice(1).replace(/\//g, path.sep)
+      }
+      const normalized = path.normalize(pathStr)
+      const buf = readFileSync(normalized)
+      const mime = getImageMimeFromBuffer(buf) ?? getMimeFromExt(normalized)
+      return new Response(buf, { headers: { 'Content-Type': mime } })
+    } catch {
+      return new Response('Not Found', { status: 404 })
+    }
+  }
+  protocol.handle('asterisk-file', handler)
 }

@@ -7,6 +7,13 @@ const GROUP_COLORS = [
   '#bbdefb', '#c8e6c9', '#ffe0b2', '#f8bbd9', '#d1c4e9'
 ]
 
+/** Hex to rgba with alpha for subtle group fill */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+  if (!m) return `rgba(128,128,128,${alpha})`
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${alpha})`
+}
+
 interface CanvasGroupProps {
   group: CanvasNode
   onDrag: (dx: number, dy: number) => void
@@ -32,10 +39,21 @@ export default function CanvasGroup({
   const [isResizing, setIsResizing] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [colorPickerRect, setColorPickerRect] = useState<{ left: number; top: number } | null>(null)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState(group.title ?? '')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const colorPickerAnchorRef = useRef<HTMLDivElement>(null)
   const dragStart = useRef({ x: 0, y: 0 })
   const resizeStart = useRef({ w: 0, h: 0, x: 0, y: 0 })
   const didDragRef = useRef(false)
+
+  useEffect(() => {
+    setTitleValue(group.title ?? '')
+  }, [group.title])
+
+  useEffect(() => {
+    if (isEditingTitle) titleInputRef.current?.focus()
+  }, [isEditingTitle])
 
   useLayoutEffect(() => {
     if (!showColorPicker || !colorPickerAnchorRef.current) {
@@ -58,9 +76,16 @@ export default function CanvasGroup({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [showColorPicker])
 
+  const commitTitle = () => {
+    const t = titleValue.trim()
+    if (t !== (group.title ?? '')) onUpdate?.({ title: t || undefined })
+    setIsEditingTitle(false)
+  }
+
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation()
     if ((e.target as HTMLElement).closest('.canvas-group-resize-handle')) return
+    if ((e.target as HTMLElement).closest('.canvas-group-header')) return
     onSelect()
     if (e.button !== 0) return
     didDragRef.current = false
@@ -102,8 +127,11 @@ export default function CanvasGroup({
     }
   }
 
-  const bg = group.backgroundColor ?? 'var(--bg-elevated)'
-  const borderColor = group.color ?? 'var(--border)'
+  const groupColor = group.color ?? group.backgroundColor ?? 'var(--border)'
+  const borderColor = groupColor
+  const fillColor = group.backgroundColor
+    ? hexToRgba(group.backgroundColor, 0.07)
+    : 'rgba(128, 128, 128, 0.04)'
 
   return (
     <div
@@ -113,7 +141,7 @@ export default function CanvasGroup({
         top: group.y,
         width: group.width,
         height: group.height,
-        backgroundColor: bg,
+        backgroundColor: fillColor,
         borderColor,
         boxShadow: selected ? `0 0 0 2px var(--accent)` : undefined
       }}
@@ -123,55 +151,85 @@ export default function CanvasGroup({
       onPointerLeave={handlePointerUp}
       onContextMenu={onContextMenu}
     >
-      {selected && onUpdate && (
-        <div className="canvas-group-colors" ref={colorPickerAnchorRef}>
-          <button
-            type="button"
-            className="canvas-group-color-btn"
-            style={{ backgroundColor: group.backgroundColor ?? 'var(--bg-elevated)' }}
-            onPointerDown={(e) => { e.stopPropagation(); setShowColorPicker((v) => !v) }}
+      <div className="canvas-group-header" style={{ borderColor }} onPointerDown={(e) => e.stopPropagation()}>
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            className="canvas-group-title-input"
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitTitle()
+              if (e.key === 'Escape') {
+                setTitleValue(group.title ?? '')
+                setIsEditingTitle(false)
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
           />
-          {colorPickerRect &&
-            createPortal(
-              <div
-                className="canvas-group-color-picker canvas-group-color-picker-floating"
-                style={{
-                  position: 'fixed',
-                  left: colorPickerRect.left,
-                  top: colorPickerRect.top,
-                  zIndex: 9999
+        ) : (
+          <span
+            className="canvas-group-title-text"
+            onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true) }}
+            title="Click to rename group"
+          >
+            {(group.title ?? 'Group').trim() || 'Group'}
+          </span>
+        )}
+        {selected && onUpdate && (
+          <div className="canvas-group-colors" ref={colorPickerAnchorRef}>
+            <button
+              type="button"
+              className="canvas-group-color-btn"
+              style={{ backgroundColor: group.backgroundColor ?? group.color ?? 'var(--border)' }}
+              onPointerDown={(e) => { e.stopPropagation(); setShowColorPicker((v) => !v) }}
+            />
+          </div>
+        )}
+      </div>
+      {colorPickerRect &&
+        selected &&
+        onUpdate &&
+        createPortal(
+          <div
+            className="canvas-group-color-picker canvas-group-color-picker-floating"
+            style={{
+              position: 'fixed',
+              left: colorPickerRect.left,
+              top: colorPickerRect.top,
+              zIndex: 9999
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {GROUP_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className="canvas-group-color-swatch"
+                style={{ backgroundColor: c }}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onUpdate({ backgroundColor: c, color: c })
+                  setShowColorPicker(false)
                 }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {GROUP_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className="canvas-group-color-swatch"
-                    style={{ backgroundColor: c }}
-                    onPointerDown={(e) => {
-                      e.stopPropagation()
-                      onUpdate({ backgroundColor: c })
-                      setShowColorPicker(false)
-                    }}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className="canvas-group-color-reset"
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    onUpdate({ backgroundColor: undefined })
-                    setShowColorPicker(false)
-                  }}
-                >
-                  Reset
-                </button>
-              </div>,
-              document.body
-            )}
-        </div>
-      )}
+              />
+            ))}
+            <button
+              type="button"
+              className="canvas-group-color-reset"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onUpdate({ backgroundColor: undefined, color: undefined })
+                setShowColorPicker(false)
+              }}
+            >
+              Reset
+            </button>
+          </div>,
+          document.body
+        )}
       {onResize && (
         <div
           className="canvas-group-resize-handle"

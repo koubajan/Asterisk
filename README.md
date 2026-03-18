@@ -36,7 +36,10 @@ npm run dev
 | `npm run dev` | Start app in development mode with hot reload |
 | `npm run build` | Production build (Electron + renderer) |
 | `npm run preview` | Run the production build locally |
+| `npm run dist` | Build and package installers (uses `resources/icon.png`) |
 | `npm run typecheck` | TypeScript check (node + renderer) |
+
+**App icon:** Replace `resources/icon.png` with your own (512×512 PNG recommended). It is used for the window (Windows/Linux) and for packaged app icons on all platforms.
 
 ---
 

@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar/Sidebar'
 import EditorPane from './components/Editor/EditorPane'
 import EditorTabs from './components/Editor/EditorTabs'
 import Canvas from './components/Canvas/Canvas'
+import ExcalidrawPane from './components/Editor/ExcalidrawPane'
 import PreviewPane from './components/Preview/PreviewPane'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsModal from './components/Settings/SettingsModal'
@@ -22,6 +23,11 @@ function lightenHex(hex: string, factor: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
 
+/** Use path so unsaved/renamed files still count when extension is .md/.markdown. */
+function isMdPath(path: string): boolean {
+  return /\.(md|markdown)$/i.test(path)
+}
+
 export default function App() {
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const sidebarVisible = useWorkspace((s) => s.sidebarVisible)
@@ -29,7 +35,7 @@ export default function App() {
   const previewVisible = useWorkspace((s) => s.previewVisible)
   const centerRef = useRef<HTMLDivElement>(null)
 
-  const { activeThemeId, customThemes, typography, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth } = useSettings()
+  const { activeThemeId, customThemes, typography, editorMode, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth } = useSettings()
 
   const handleResize = useCallback((e: React.MouseEvent) => {
     const startX = e.clientX
@@ -98,6 +104,8 @@ export default function App() {
 
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
   const isCanvasOpen = openFile?.path.endsWith('.artifact') ?? false
+  const isExcalidrawOpen = openFile?.path.endsWith('.excalidraw') ?? false
+  const showPreviewPanel = editorMode === 'split-view' && !isCanvasOpen && !isExcalidrawOpen && !!openFile && isMdPath(openFile.path)
   const updateContent = useWorkspace((s) => s.updateContent)
   const markSaved = useWorkspace((s) => s.markSaved)
   const loadCanvas = useArtifacts((s) => s.loadCanvas)
@@ -161,16 +169,22 @@ export default function App() {
           <div
             className="workspace-editor-wrap"
             style={{
-              flex: previewVisible && !isCanvasOpen ? editorPreviewRatio : 1,
+              flex: showPreviewPanel ? editorPreviewRatio : 1,
               minWidth: 0
             }}
           >
             <EditorTabs />
             <div className="workspace-editor-content">
-              {isCanvasOpen ? <Canvas /> : <EditorPane />}
+              {isCanvasOpen ? (
+                <Canvas />
+              ) : isExcalidrawOpen && openFile ? (
+                <ExcalidrawPane filePath={openFile.path} initialContent={openFile.content} />
+              ) : (
+                <EditorPane />
+              )}
             </div>
           </div>
-          {previewVisible && !isCanvasOpen && (
+          {showPreviewPanel && (
             <>
               <div
                 className="workspace-resizer"
