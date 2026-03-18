@@ -10,7 +10,7 @@
 
 </div>
 
-A dark-themed **Markdown note editor** for desktop with canvas artifacts, Excalidraw drawings, AI assistant, version history, and calendar. Built with Electron and React for a fast, local-first workflow.
+A **Markdown note editor** for desktop with canvas artifacts, Excalidraw drawings, AI assistant, version history, and calendar. Built with Electron and React for a fast, local-first workflow.
 
 ---
 
