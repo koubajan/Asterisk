@@ -58,6 +58,8 @@ interface SettingsState {
   remindersEnabled: boolean
   /** Minutes before scheduled time to show reminder */
   reminderAdvanceMinutes: number
+  /** Whether to create version snapshots on autosave */
+  snapshotOnAutoSave: boolean
 
   openSettings: () => void
   closeSettings: () => void
@@ -79,6 +81,7 @@ interface SettingsState {
   setAiPanelWidth: (val: number) => void
   setRemindersEnabled: (val: boolean) => void
   setReminderAdvanceMinutes: (val: number) => void
+  setSnapshotOnAutoSave: (val: boolean) => void
   resetSettings: () => void
 }
 
@@ -115,6 +118,7 @@ export const useSettings = create<SettingsState>()(
       geminiApiKey: '',
       remindersEnabled: true,
       reminderAdvanceMinutes: 5,
+      snapshotOnAutoSave: false,
 
       openSettings: () => set({ isSettingsOpen: true }),
       closeSettings: () => set({ isSettingsOpen: false }),
@@ -150,6 +154,7 @@ export const useSettings = create<SettingsState>()(
       setAiPanelWidth: (aiPanelWidth) => set({ aiPanelWidth: Math.max(280, Math.min(600, aiPanelWidth)) }),
       setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
       setReminderAdvanceMinutes: (reminderAdvanceMinutes) => set({ reminderAdvanceMinutes }),
+      setSnapshotOnAutoSave: (snapshotOnAutoSave) => set({ snapshotOnAutoSave }),
       resetSettings: () => set({ 
         activeThemeId: 'preset-bw',
         typography: 'sans', 
@@ -161,7 +166,8 @@ export const useSettings = create<SettingsState>()(
         editorPreviewRatio: 0.5,
         aiPanelWidth: 360,
         remindersEnabled: true,
-        reminderAdvanceMinutes: 5
+        reminderAdvanceMinutes: 5,
+        snapshotOnAutoSave: false
       })
     }),
     {
@@ -181,7 +187,8 @@ export const useSettings = create<SettingsState>()(
         anthropicApiKey: state.anthropicApiKey,
         geminiApiKey: state.geminiApiKey,
         remindersEnabled: state.remindersEnabled,
-        reminderAdvanceMinutes: state.reminderAdvanceMinutes
+        reminderAdvanceMinutes: state.reminderAdvanceMinutes,
+        snapshotOnAutoSave: state.snapshotOnAutoSave
       })
     }
   )

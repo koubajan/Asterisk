@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, protocol, nativeImage, net, shell } fro
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import { readFileSync, existsSync } from 'fs'
-import { buildTree, safeReadFile, safeWriteFile, safeDeleteItem, searchContentInFolder, getScheduledNotesInFolder } from './fileSystem'
+import { buildTree, safeReadFile, safeWriteFile, safeDeleteItem, searchContentInFolder, getScheduledNotesInFolder, saveFileSnapshot, getFileSnapshots, getSnapshotContent, deleteSnapshot } from './fileSystem'
 import { sendAIChat } from './ai'
 import type { IpcResult, FolderNode } from '../../preload/types'
 
@@ -267,6 +267,27 @@ export function registerIpcHandlers(): void {
       return { path: result.filePath! }
     })
   })
+
+  // ── Version History ────────────────────────────────────────────────────────
+  ipcMain.handle('history:save-snapshot', (_e, workspacePath: string, filePath: string, content: string) =>
+    wrap(() => saveFileSnapshot(workspacePath, filePath, content))
+  )
+
+  ipcMain.handle('history:get-snapshots', (_e, workspacePath: string, filePath: string) =>
+    wrap(() => getFileSnapshots(workspacePath, filePath))
+  )
+
+  ipcMain.handle('history:get-content', (_e, workspacePath: string, filePath: string, snapshotId: string) =>
+    wrap(async () => {
+      const content = await getSnapshotContent(workspacePath, filePath, snapshotId)
+      if (content === null) throw new Error('Snapshot not found')
+      return { content }
+    })
+  )
+
+  ipcMain.handle('history:delete-snapshot', (_e, workspacePath: string, filePath: string, snapshotId: string) =>
+    wrap(() => deleteSnapshot(workspacePath, filePath, snapshotId))
+  )
 
   // ── Read image as data URL: use sharp when available (resize); else raw under cap ─────────
   const SAFE_RAW_BYTES = 550_000 // ~730k base64; over ~1MB can truncate over IPC

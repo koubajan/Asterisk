@@ -22,6 +22,11 @@ interface ArtifactsState {
   isDirty: boolean
   historyPast: CanvasData[]
   historyFuture: CanvasData[]
+  
+  /** Presentation mode state */
+  presentationMode: boolean
+  presentationIndex: number
+  presentationOrder: string[] // node IDs in presentation order
 
   loadCanvas: (path: string, content: string) => void
   closeCanvas: () => void
@@ -36,6 +41,27 @@ interface ArtifactsState {
   markSaved: () => void
   undo: () => void
   redo: () => void
+  
+  /** Presentation mode actions */
+  startPresentation: () => void
+  stopPresentation: () => void
+  nextSlide: () => void
+  prevSlide: () => void
+  goToSlide: (index: number) => void
+}
+
+function computePresentationOrder(nodes: CanvasNode[]): string[] {
+  // Filter out groups, sort by position (top-to-bottom, left-to-right)
+  const presentableNodes = nodes.filter(n => n.type !== 'group')
+  return presentableNodes
+    .sort((a, b) => {
+      // Primary sort by Y (top to bottom)
+      const yDiff = a.y - b.y
+      if (Math.abs(yDiff) > 50) return yDiff
+      // Secondary sort by X (left to right)
+      return a.x - b.x
+    })
+    .map(n => n.id)
 }
 
 export const useArtifacts = create<ArtifactsState>((set, get) => ({
@@ -44,13 +70,16 @@ export const useArtifacts = create<ArtifactsState>((set, get) => ({
   isDirty: false,
   historyPast: [],
   historyFuture: [],
+  presentationMode: false,
+  presentationIndex: 0,
+  presentationOrder: [],
 
   loadCanvas: (path, content) => {
     const data = parseCanvasContent(content)
-    set({ canvasPath: path, data, isDirty: false, historyPast: [], historyFuture: [] })
+    set({ canvasPath: path, data, isDirty: false, historyPast: [], historyFuture: [], presentationMode: false, presentationIndex: 0, presentationOrder: [] })
   },
 
-  closeCanvas: () => set({ canvasPath: null, data: { ...DEFAULT_CANVAS }, isDirty: false, historyPast: [], historyFuture: [] }),
+  closeCanvas: () => set({ canvasPath: null, data: { ...DEFAULT_CANVAS }, isDirty: false, historyPast: [], historyFuture: [], presentationMode: false, presentationIndex: 0, presentationOrder: [] }),
 
   setData: (data) => set((s) => ({ ...pushToHistory(s), data, isDirty: true })),
 
@@ -144,6 +173,33 @@ export const useArtifacts = create<ArtifactsState>((set, get) => ({
       historyFuture: s.historyFuture.slice(1),
       isDirty: true
     }
+  }),
+
+  startPresentation: () => {
+    const { data } = get()
+    const order = computePresentationOrder(data.nodes)
+    if (order.length === 0) return
+    set({ presentationMode: true, presentationIndex: 0, presentationOrder: order })
+  },
+
+  stopPresentation: () => set({ presentationMode: false, presentationIndex: 0, presentationOrder: [] }),
+
+  nextSlide: () => set((s) => {
+    if (!s.presentationMode) return s
+    const nextIndex = Math.min(s.presentationIndex + 1, s.presentationOrder.length - 1)
+    return { presentationIndex: nextIndex }
+  }),
+
+  prevSlide: () => set((s) => {
+    if (!s.presentationMode) return s
+    const prevIndex = Math.max(s.presentationIndex - 1, 0)
+    return { presentationIndex: prevIndex }
+  }),
+
+  goToSlide: (index: number) => set((s) => {
+    if (!s.presentationMode) return s
+    const clampedIndex = Math.max(0, Math.min(index, s.presentationOrder.length - 1))
+    return { presentationIndex: clampedIndex }
   })
 }))
 

@@ -313,6 +313,15 @@
   margin: 0 2px;
 }
 
+.canvas-toolbar-present {
+  color: var(--accent);
+}
+
+.canvas-toolbar-present:hover {
+  background: var(--accent);
+  color: white;
+}
+
 .canvas-toolbar-zoom {
   font-size: 11px;
   color: var(--text-muted);

@@ -8,6 +8,7 @@ import CanvasEdge from './CanvasEdge'
 import CanvasGroup from './CanvasGroup'
 import CanvasToolbar from './CanvasToolbar'
 import CanvasContextMenu from './CanvasContextMenu'
+import PresentationOverlay from './PresentationOverlay'
 import { exportCanvasAsImage } from './exportCanvas'
 import './Canvas.css'
 
@@ -59,7 +60,7 @@ export default function Canvas() {
   const areaRef = useRef<HTMLDivElement>(null)
   const clearEdgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const centeredPathRef = useRef<string | null>(null)
-  const { data, updateNode, setViewport, addNode, addEdge, removeNode, removeEdge, updateEdge, undo, redo } = useArtifacts()
+  const { data, updateNode, setViewport, addNode, addEdge, removeNode, removeEdge, updateEdge, undo, redo, startPresentation } = useArtifacts()
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useCanvas(areaRef)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [connectionFromId, setConnectionFromId] = useState<string | null>(null)
@@ -791,6 +792,7 @@ export default function Canvas() {
           selectionMode={selectionMode}
           onSelectionModeToggle={() => setSelectionMode((m) => !m)}
           onExport={handleExport}
+          onPresent={startPresentation}
         />
       </div>
       <div
@@ -1074,6 +1076,7 @@ export default function Canvas() {
           </div>
         )}
       </div>
+      <PresentationOverlay />
     </div>
   )
 }

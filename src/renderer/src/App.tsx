@@ -12,6 +12,7 @@ import PreviewPane from './components/Preview/PreviewPane'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsModal from './components/Settings/SettingsModal'
 import AIChat from './components/AIChat/AIChat'
+import HistoryPanel from './components/History/HistoryPanel'
 import { useSettings, PRESET_THEMES } from './store/useSettings'
 import type { FolderNode } from './types'
 
@@ -31,6 +32,7 @@ function isMdPath(path: string): boolean {
 
 export default function App() {
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
   const sidebarVisible = useWorkspace((s) => s.sidebarVisible)
   const toggleSidebar = useWorkspace((s) => s.toggleSidebar)
   const previewVisible = useWorkspace((s) => s.previewVisible)
@@ -202,7 +204,7 @@ export default function App() {
 
   return (
     <>
-      <TopBar onOpenAIPanel={() => setAiPanelOpen(true)} />
+      <TopBar onOpenAIPanel={() => setAiPanelOpen(true)} onOpenHistory={() => setHistoryPanelOpen(true)} />
       <div className="workspace">
         {sidebarVisible && <Sidebar />}
         <div ref={centerRef} className="workspace-center">
@@ -256,6 +258,7 @@ export default function App() {
       </div>
       <StatusBar />
       <SettingsModal />
+      {historyPanelOpen && <HistoryPanel onClose={() => setHistoryPanelOpen(false)} />}
     </>
   )
 }

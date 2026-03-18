@@ -71,7 +71,20 @@ const api: AsteriskAPI = {
     const listener = (_e: Electron.IpcRendererEvent, notePath: string) => callback(notePath)
     ipcRenderer.on('reminder:open-note', listener)
     return () => ipcRenderer.removeListener('reminder:open-note', listener)
-  }
+  },
+
+  // Version History
+  saveSnapshot: (workspacePath: string, filePath: string, content: string) =>
+    ipcRenderer.invoke('history:save-snapshot', workspacePath, filePath, content),
+
+  getSnapshots: (workspacePath: string, filePath: string) =>
+    ipcRenderer.invoke('history:get-snapshots', workspacePath, filePath),
+
+  getSnapshotContent: (workspacePath: string, filePath: string, snapshotId: string) =>
+    ipcRenderer.invoke('history:get-content', workspacePath, filePath, snapshotId),
+
+  deleteSnapshot: (workspacePath: string, filePath: string, snapshotId: string) =>
+    ipcRenderer.invoke('history:delete-snapshot', workspacePath, filePath, snapshotId)
 }
 
 contextBridge.exposeInMainWorld('asterisk', api)

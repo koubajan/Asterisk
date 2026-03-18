@@ -1,4 +1,4 @@
-import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download } from 'lucide-react'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download, Play } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 
 interface CanvasToolbarProps {
@@ -20,9 +20,10 @@ interface CanvasToolbarProps {
   moveMode?: boolean
   onMoveModeToggle?: () => void
   onExport?: () => void
+  onPresent?: () => void
 }
 
-export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport }: CanvasToolbarProps) {
+export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport, onPresent }: CanvasToolbarProps) {
   const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
   const canUndo = historyPast.length > 0
   const canRedo = historyFuture.length > 0
@@ -120,6 +121,14 @@ export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOu
           <span className="canvas-toolbar-sep" />
           <button type="button" className="canvas-toolbar-btn" onClick={onExport} title="Export as image">
             <Download size={16} strokeWidth={1.7} />
+          </button>
+        </>
+      )}
+      {onPresent && data.nodes.filter(n => n.type !== 'group').length > 0 && (
+        <>
+          <span className="canvas-toolbar-sep" />
+          <button type="button" className="canvas-toolbar-btn canvas-toolbar-present" onClick={onPresent} title="Start presentation (step through nodes)">
+            <Play size={16} strokeWidth={1.7} />
           </button>
         </>
       )}

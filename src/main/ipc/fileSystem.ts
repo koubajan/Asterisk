@@ -1,6 +1,123 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { existsSync } from 'fs'
 import type { FolderNode } from '../../preload/types'
+
+// ─── Version History ────────────────────────────────────────────────────────
+
+const HISTORY_FOLDER = '.history'
+const MAX_SNAPSHOTS_PER_FILE = 50
+
+export interface FileSnapshot {
+  id: string
+  filePath: string
+  timestamp: number
+  content: string
+  size: number
+}
+
+function getHistoryDir(workspacePath: string): string {
+  return path.join(workspacePath, HISTORY_FOLDER)
+}
+
+function getFileHistoryPath(workspacePath: string, filePath: string): string {
+  const relativePath = path.relative(workspacePath, filePath)
+  const safeName = relativePath.replace(/[/\\]/g, '__').replace(/[^a-zA-Z0-9._-]/g, '_')
+  return path.join(getHistoryDir(workspacePath), `${safeName}.json`)
+}
+
+export async function saveFileSnapshot(
+  workspacePath: string,
+  filePath: string,
+  content: string
+): Promise<FileSnapshot> {
+  const historyDir = getHistoryDir(workspacePath)
+  await fs.mkdir(historyDir, { recursive: true })
+  
+  const historyFilePath = getFileHistoryPath(workspacePath, filePath)
+  let snapshots: FileSnapshot[] = []
+  
+  try {
+    const existing = await fs.readFile(historyFilePath, 'utf-8')
+    snapshots = JSON.parse(existing)
+  } catch {
+    // No existing history
+  }
+  
+  const snapshot: FileSnapshot = {
+    id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    filePath,
+    timestamp: Date.now(),
+    content,
+    size: content.length
+  }
+  
+  snapshots.push(snapshot)
+  
+  // Keep only the last N snapshots
+  if (snapshots.length > MAX_SNAPSHOTS_PER_FILE) {
+    snapshots = snapshots.slice(-MAX_SNAPSHOTS_PER_FILE)
+  }
+  
+  await fs.writeFile(historyFilePath, JSON.stringify(snapshots, null, 2), 'utf-8')
+  
+  return snapshot
+}
+
+export async function getFileSnapshots(
+  workspacePath: string,
+  filePath: string
+): Promise<Omit<FileSnapshot, 'content'>[]> {
+  const historyFilePath = getFileHistoryPath(workspacePath, filePath)
+  
+  try {
+    const data = await fs.readFile(historyFilePath, 'utf-8')
+    const snapshots: FileSnapshot[] = JSON.parse(data)
+    // Return without content to keep response small
+    return snapshots.map(({ id, filePath, timestamp, size }) => ({
+      id,
+      filePath,
+      timestamp,
+      size
+    })).reverse() // Most recent first
+  } catch {
+    return []
+  }
+}
+
+export async function getSnapshotContent(
+  workspacePath: string,
+  filePath: string,
+  snapshotId: string
+): Promise<string | null> {
+  const historyFilePath = getFileHistoryPath(workspacePath, filePath)
+  
+  try {
+    const data = await fs.readFile(historyFilePath, 'utf-8')
+    const snapshots: FileSnapshot[] = JSON.parse(data)
+    const snapshot = snapshots.find(s => s.id === snapshotId)
+    return snapshot?.content ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function deleteSnapshot(
+  workspacePath: string,
+  filePath: string,
+  snapshotId: string
+): Promise<void> {
+  const historyFilePath = getFileHistoryPath(workspacePath, filePath)
+  
+  try {
+    const data = await fs.readFile(historyFilePath, 'utf-8')
+    let snapshots: FileSnapshot[] = JSON.parse(data)
+    snapshots = snapshots.filter(s => s.id !== snapshotId)
+    await fs.writeFile(historyFilePath, JSON.stringify(snapshots, null, 2), 'utf-8')
+  } catch {
+    // No history to delete from
+  }
+}
 
 const ALLOWED_EXTENSIONS = new Set([
   // Markdown/text

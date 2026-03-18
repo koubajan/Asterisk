@@ -401,6 +401,14 @@
   line-height: 1.4;
 }
 
+.settings-label-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
 .settings-ideas {
   font-size: 11px;
   color: var(--text-muted);

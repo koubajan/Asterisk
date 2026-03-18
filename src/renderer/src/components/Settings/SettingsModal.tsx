@@ -35,6 +35,7 @@ export default function SettingsModal() {
     typography, lineWrapping, fontSize, tabSize, autoSave, editorMode,
     openaiApiKey, anthropicApiKey, geminiApiKey, setOpenaiApiKey, setAnthropicApiKey, setGeminiApiKey,
     remindersEnabled, reminderAdvanceMinutes, setRemindersEnabled, setReminderAdvanceMinutes,
+    snapshotOnAutoSave, setSnapshotOnAutoSave,
     setActiveTheme, addCustomTheme, deleteCustomTheme, exportThemes, importThemes,
     setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave, setEditorMode,
     resetSettings
@@ -270,6 +271,18 @@ export default function SettingsModal() {
                   <div className="settings-row">
                     <label>Auto-save</label>
                     <input type="checkbox" checked={autoSave} onChange={e => setAutoSave(e.target.checked)} />
+                  </div>
+                  <div className="settings-row">
+                    <label>
+                      Create version snapshots on autosave
+                      <span className="settings-label-hint">Save file history automatically</span>
+                    </label>
+                    <input 
+                      type="checkbox" 
+                      checked={snapshotOnAutoSave} 
+                      onChange={e => setSnapshotOnAutoSave(e.target.checked)}
+                      disabled={!autoSave}
+                    />
                   </div>
                 </div>
                 <p className="settings-ideas">

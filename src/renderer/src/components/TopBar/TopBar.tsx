@@ -14,7 +14,8 @@ import {
   FileText,
   FileCode,
   Printer,
-  Sparkles
+  Sparkles,
+  History
 } from 'lucide-react'
 import { marked } from 'marked'
 import { useWorkspace } from '../../store/useWorkspace'
@@ -79,9 +80,10 @@ function downloadBlob(content: string, filename: string, mimeType: string) {
 
 interface TopBarProps {
   onOpenAIPanel?: () => void
+  onOpenHistory?: () => void
 }
 
-export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
+export default function TopBar({ onOpenAIPanel, onOpenHistory }: TopBarProps = {}) {
   const { openFolder, createFile } = useFileOps()
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
   const workspaces = useWorkspace((s) => s.workspaces)
@@ -118,6 +120,16 @@ export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
 
   async function handleSave() {
     if (!openFile) return
+    
+    // Save snapshot before writing (for version history)
+    if (folderPath && !openFile.path.endsWith('.artifact') && !openFile.path.endsWith('.excalidraw')) {
+      try {
+        await window.asterisk.saveSnapshot(folderPath, openFile.path, openFile.content)
+      } catch {
+        // Snapshot failed, continue with save anyway
+      }
+    }
+    
     await window.asterisk.writeFile(openFile.path, openFile.content)
     markSaved()
   }
@@ -236,6 +248,16 @@ export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
           title="AI Assistant"
         >
           <Sparkles size={15} strokeWidth={1.6} />
+        </button>
+      )}
+      {/* Version History */}
+      {onOpenHistory && openFile && (
+        <button
+          className="topbar-toggle"
+          onClick={onOpenHistory}
+          title="Version History"
+        >
+          <History size={15} strokeWidth={1.6} />
         </button>
       )}
       {/* Settings */}

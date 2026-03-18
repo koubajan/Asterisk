@@ -64,6 +64,17 @@ export interface ReminderConfig {
   workspacePath: string | null
 }
 
+export interface FileSnapshot {
+  id: string
+  filePath: string
+  timestamp: number
+  size: number
+}
+
+export interface FileSnapshotWithContent extends FileSnapshot {
+  content: string
+}
+
 export interface AsteriskAPI {
   openFolderDialog(): Promise<IpcResult<{ path: string; tree: FolderNode[] }>>
   readFile(filePath: string): Promise<IpcResult<{ content: string }>>
@@ -88,6 +99,12 @@ export interface AsteriskAPI {
   getReminderConfig(): Promise<IpcResult<ReminderConfig>>
   onFolderChange(callback: (tree: FolderNode[]) => void): () => void
   onReminderOpenNote(callback: (notePath: string) => void): () => void
+  
+  // Version History
+  saveSnapshot(workspacePath: string, filePath: string, content: string): Promise<IpcResult<FileSnapshotWithContent>>
+  getSnapshots(workspacePath: string, filePath: string): Promise<IpcResult<FileSnapshot[]>>
+  getSnapshotContent(workspacePath: string, filePath: string, snapshotId: string): Promise<IpcResult<{ content: string }>>
+  deleteSnapshot(workspacePath: string, filePath: string, snapshotId: string): Promise<IpcResult>
 }
 
 // ─── Window augmentation ────────────────────────────────────────────────────
