@@ -44,8 +44,9 @@ interface WorkspaceState {
 
   // ── Calendar / scheduled notes ───────────────────────────────────────────────
   noteSchedules: Record<string, string>   // path → ISO date string
+  noteReminders: Record<string, string>   // path → reminder message
   loadScheduledNotes: () => Promise<void>
-  setNoteDate: (filePath: string, dateIso: string | null) => Promise<void>
+  setNoteDate: (filePath: string, dateIso: string | null, reminder?: string | null) => Promise<void>
 
   toggleBookmark: (path: string) => void
 
@@ -93,6 +94,7 @@ export const useWorkspace = create<WorkspaceState>()(
       customTags: [],
       fileTags: {},
       noteSchedules: {},
+      noteReminders: {},
 
       loadScheduledNotes: async () => {
         const { workspaces, activeWorkspaceIndex } = get()
@@ -100,26 +102,33 @@ export const useWorkspace = create<WorkspaceState>()(
         if (!root) return
         const res = await window.asterisk.getScheduledNotes(root)
         if (!res.ok || !res.data?.notes) return
-        const map: Record<string, string> = {}
-        for (const { path: p, scheduled } of res.data.notes) map[p] = scheduled
-        set({ noteSchedules: map })
+        const schedules: Record<string, string> = {}
+        const reminders: Record<string, string> = {}
+        for (const { path: p, scheduled, reminder } of res.data.notes) {
+          schedules[p] = scheduled
+          if (reminder) reminders[p] = reminder
+        }
+        set({ noteSchedules: schedules, noteReminders: reminders })
       },
 
-      setNoteDate: async (filePath, dateIso) => {
+      setNoteDate: async (filePath, dateIso, reminder) => {
         const res = await window.asterisk.readFile(filePath)
         if (!res.ok || res.data?.content === undefined) return
         const parsed = parseFrontmatter(res.data.content)
-        const next = setScheduledFm(parsed, dateIso)
+        const next = setScheduledFm(parsed, dateIso, reminder)
         const content = serializeFrontmatter(next.frontmatter, next.body)
         await window.asterisk.writeFile(filePath, content)
         set((s) => {
           const nextSchedules = { ...s.noteSchedules }
+          const nextReminders = { ...s.noteReminders }
           if (dateIso) nextSchedules[filePath] = dateIso
           else delete nextSchedules[filePath]
+          if (reminder) nextReminders[filePath] = reminder
+          else delete nextReminders[filePath]
           const nextFiles = s.openFiles.map((f) =>
             f.path === filePath ? { ...f, content, isDirty: false } : f
           )
-          return { noteSchedules: nextSchedules, openFiles: nextFiles }
+          return { noteSchedules: nextSchedules, noteReminders: nextReminders, openFiles: nextFiles }
         })
       },
 

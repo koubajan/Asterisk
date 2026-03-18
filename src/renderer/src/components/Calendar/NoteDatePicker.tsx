@@ -12,13 +12,16 @@ interface NoteDatePickerProps {
 
 export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerProps) {
   const noteSchedules = useWorkspace((s) => s.noteSchedules)
+  const noteReminders = useWorkspace((s) => s.noteReminders)
   const setNoteDate = useWorkspace((s) => s.setNoteDate)
   const loadScheduledNotes = useWorkspace((s) => s.loadScheduledNotes)
 
   const scheduled = filePath ? noteSchedules[filePath] ?? null : null
+  const existingReminder = filePath ? noteReminders[filePath] ?? '' : ''
   const [pickerOpen, setPickerOpen] = useState(false)
   const [localDate, setLocalDate] = useState(scheduled ? format(parseISO(scheduled), "yyyy-MM-dd'T'HH:mm") : '')
   const [localTime, setLocalTime] = useState(scheduled ? format(parseISO(scheduled), 'HH:mm') : '12:00')
+  const [localReminder, setLocalReminder] = useState(existingReminder)
   const triggerRef = useRef<HTMLDivElement>(null)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number } | null>(null)
 
@@ -40,7 +43,8 @@ export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerPr
       setLocalDate('')
       setLocalTime('12:00')
     }
-  }, [scheduled])
+    setLocalReminder(existingReminder)
+  }, [scheduled, existingReminder])
 
   useLayoutEffect(() => {
     if (!pickerOpen || !triggerRef.current) {
@@ -49,7 +53,16 @@ export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerPr
     }
     const el = triggerRef.current
     const rect = el.getBoundingClientRect()
-    setDropdownRect({ top: rect.bottom + 4, left: rect.left })
+    const dropdownHeight = 140
+    const viewportHeight = window.innerHeight
+    const spaceBelow = viewportHeight - rect.bottom
+    const spaceAbove = rect.top
+    
+    if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+      setDropdownRect({ top: rect.top - dropdownHeight - 4, left: rect.left })
+    } else {
+      setDropdownRect({ top: rect.bottom + 4, left: rect.left })
+    }
   }, [pickerOpen])
 
   useEffect(() => {
@@ -80,7 +93,8 @@ export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerPr
   async function handleSet() {
     if (!filePath || !localDate.trim()) return
     const iso = localDate.includes('T') ? localDate : `${localDate}T${localTime}:00`
-    await setNoteDate(filePath, iso)
+    const reminder = localReminder.trim() || null
+    await setNoteDate(filePath, iso, reminder)
     await loadScheduledNotes()
     onRefresh?.()
     setPickerOpen(false)
@@ -115,14 +129,21 @@ export default function NoteDatePicker({ filePath, onRefresh }: NoteDatePickerPr
           <input
             type="datetime-local"
             className="note-date-picker-datetime"
-            value={localDate || undefined}
+            value={localDate}
             onChange={(e) => setLocalDate(e.target.value)}
+          />
+          <input
+            type="text"
+            className="note-date-picker-reminder"
+            value={localReminder}
+            onChange={(e) => setLocalReminder(e.target.value)}
+            placeholder="Reminder message (optional)"
           />
           <div className="note-date-picker-actions">
             <button type="button" className="note-date-picker-btn" onClick={handleSet}>
               Set
             </button>
-            <button type="button" className="note-date-picker-clear" onClick={() => setPickerOpen(false)}>
+            <button type="button" className="note-date-picker-btn" onClick={() => setPickerOpen(false)}>
               Cancel
             </button>
           </div>

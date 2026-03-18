@@ -42,6 +42,7 @@ export interface ContentSearchMatch {
 export interface ScheduledNote {
   path: string
   scheduled: string
+  reminder?: string
 }
 
 export interface AIMessage {
@@ -55,6 +56,12 @@ export interface AIChatRequest {
   model?: string
   messages: AIMessage[]
   fileContext?: string
+}
+
+export interface ReminderConfig {
+  enabled: boolean
+  advanceMinutes: number
+  workspacePath: string | null
 }
 
 export interface AsteriskAPI {
@@ -77,7 +84,10 @@ export interface AsteriskAPI {
   fetchUrlText(url: string): Promise<IpcResult<{ text: string }>>
   fetchImageDataUrl(imageUrl: string): Promise<IpcResult<{ dataUrl: string }>>
   openExternalUrl(url: string): Promise<IpcResult>
+  setReminderConfig(config: Partial<ReminderConfig>): Promise<IpcResult>
+  getReminderConfig(): Promise<IpcResult<ReminderConfig>>
   onFolderChange(callback: (tree: FolderNode[]) => void): () => void
+  onReminderOpenNote(callback: (notePath: string) => void): () => void
 }
 
 // ─── Window augmentation ────────────────────────────────────────────────────

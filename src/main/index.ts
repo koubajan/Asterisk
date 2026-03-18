@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, nativeImage, protocol } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { registerIpcHandlers, registerImageProtocol } from './ipc/handlers'
+import { registerReminderHandlers, startReminderService } from './ipc/reminders'
 import { buildMenu } from './menu'
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'asterisk-file', privileges: { standard: true } }])
@@ -66,8 +67,10 @@ app.whenReady().then(() => {
   }
 
   registerIpcHandlers()
+  registerReminderHandlers()
   registerImageProtocol()
   buildMenu()
+  startReminderService()
   createWindow()
 
   app.on('activate', () => {

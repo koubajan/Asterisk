@@ -53,8 +53,13 @@ export default function ContextMenu({
     }
   }, [onClose])
 
-  const adjustedX = Math.min(x, window.innerWidth  - 200 - 8)
-  const adjustedY = Math.min(y, window.innerHeight - 340 - 8)
+  const menuWidth = 200
+  const menuHeight = node ? 400 : 160
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const adjustedX = x + menuWidth > viewportWidth - 8 ? x - menuWidth : x
+  const adjustedY = y + menuHeight > viewportHeight - 8 ? Math.max(8, viewportHeight - menuHeight - 8) : y
+
   const createDir = node?.kind === 'folder' ? node.path : rootPath
 
   function handleCreateTag(e: React.FormEvent) {

@@ -13,6 +13,7 @@ import StatusBar from './components/StatusBar/StatusBar'
 import SettingsModal from './components/Settings/SettingsModal'
 import AIChat from './components/AIChat/AIChat'
 import { useSettings, PRESET_THEMES } from './store/useSettings'
+import type { FolderNode } from './types'
 
 /** Lighten a hex color by a factor 0–1 (e.g. 0.04 adds ~4% lightness). */
 function lightenHex(hex: string, factor: number): string {
@@ -35,7 +36,11 @@ export default function App() {
   const previewVisible = useWorkspace((s) => s.previewVisible)
   const centerRef = useRef<HTMLDivElement>(null)
 
-  const { activeThemeId, customThemes, typography, editorMode, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth } = useSettings()
+  const { activeThemeId, customThemes, typography, editorMode, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth, remindersEnabled, reminderAdvanceMinutes } = useSettings()
+  const workspaces = useWorkspace((s) => s.workspaces)
+  const activeWorkspaceIndex = useWorkspace((s) => s.activeWorkspaceIndex)
+  const tree = useWorkspace((s) => s.tree)
+  const openFileNode = useWorkspace((s) => s.openFileNode)
 
   const handleResize = useCallback((e: React.MouseEvent) => {
     const startX = e.clientX
@@ -159,6 +164,41 @@ export default function App() {
     window.addEventListener('asterisk:open-ai', handler)
     return () => window.removeEventListener('asterisk:open-ai', handler)
   }, [])
+
+  // Sync reminder config to main process
+  const workspacePath = workspaces[activeWorkspaceIndex]?.path ?? null
+  useEffect(() => {
+    window.asterisk.setReminderConfig({
+      enabled: remindersEnabled,
+      advanceMinutes: reminderAdvanceMinutes,
+      workspacePath
+    })
+  }, [remindersEnabled, reminderAdvanceMinutes, workspacePath])
+
+  // Handle reminder notification clicks - open the note
+  useEffect(() => {
+    const findNodeByPath = (path: string): FolderNode | null => {
+      const walk = (nodes: FolderNode[]): FolderNode | null => {
+        for (const n of nodes) {
+          if (n.path === path) return n
+          if (n.kind === 'folder' && n.children.length) {
+            const found = walk(n.children)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      return walk(tree)
+    }
+
+    const unsub = window.asterisk.onReminderOpenNote((notePath) => {
+      const node = findNodeByPath(notePath)
+      if (node) {
+        openFileNode(node)
+      }
+    })
+    return unsub
+  }, [tree, openFileNode])
 
   return (
     <>

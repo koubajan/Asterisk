@@ -178,12 +178,7 @@ export default function TopBar({ onOpenAIPanel }: TopBarProps = {}) {
 
       {/* Brand - Centered Absolutely */}
       <div className="topbar-brand">
-        <span className="topbar-brand-mark" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M12 3v18M3 12h18M5.64 5.64l12.72 12.72M18.36 5.64L5.64 18.36" />
-          </svg>
-        </span>
-        <span className="topbar-brand-name">Asterisk</span>
+        <span className="topbar-brand-name">Asterisk</span><span className="topbar-brand-mark" aria-hidden>*</span>
       </div>
 
       {/* Export */}

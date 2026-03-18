@@ -38,9 +38,16 @@ export function getScheduled(parsed: ParsedFrontmatter): string | null {
   return v && v.trim() ? v.trim() : null
 }
 
-export function setScheduled(parsed: ParsedFrontmatter, dateIso: string | null): ParsedFrontmatter {
+export function setScheduled(parsed: ParsedFrontmatter, dateIso: string | null, reminder?: string | null): ParsedFrontmatter {
   const next = { ...parsed.frontmatter }
   if (dateIso) next.scheduled = dateIso
   else delete next.scheduled
+  if (reminder) next.reminder = reminder
+  else delete next.reminder
   return { frontmatter: next, body: parsed.body }
+}
+
+export function getReminder(parsed: ParsedFrontmatter): string | null {
+  const v = parsed.frontmatter.reminder
+  return v && v.trim() ? v.trim() : null
 }

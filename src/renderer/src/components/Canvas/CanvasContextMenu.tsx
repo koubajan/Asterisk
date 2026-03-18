@@ -42,13 +42,20 @@ export default function CanvasContextMenu({ x, y, nodeId, edgeId, groups, curren
     }
   }, [onClose])
 
+  const menuWidth = 180
+  const menuHeight = 120
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const adjustedX = x + menuWidth > viewportWidth - 8 ? x - menuWidth : x
+  const adjustedY = y + menuHeight > viewportHeight - 8 ? Math.max(8, viewportHeight - menuHeight - 8) : y
+
   const hasGroups = groups && groups.length > 0
 
   return (
     <div
       ref={menuRef}
       className="canvas-context-menu"
-      style={{ left: x, top: y }}
+      style={{ left: adjustedX, top: adjustedY }}
       role="menu"
     >
       {edgeId && onDeleteEdge ? (

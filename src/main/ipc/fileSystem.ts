@@ -142,20 +142,26 @@ export async function searchContentInFolder(
 
 const FRONTMATTER_HEAD = /^\s*---\s*\n/
 const SCHEDULED_RE = /^\s*scheduled:\s*["']?([^"'\s\n]+(?:T[^"'\s\n]*)?)["']?\s*$/m
+const REMINDER_RE = /^\s*reminder:\s*["']?(.+?)["']?\s*$/m
 
 export interface ScheduledNote {
   path: string
   scheduled: string
+  reminder?: string
 }
 
-function extractScheduledFromFrontmatter(content: string): string | null {
+function extractFromFrontmatter(content: string): { scheduled: string | null; reminder: string | null } {
   const head = content.match(FRONTMATTER_HEAD)
-  if (!head) return null
+  if (!head) return { scheduled: null, reminder: null }
   const start = head.index! + head[0].length
   const end = content.indexOf('\n---', start)
   const block = end >= 0 ? content.slice(start, end) : content.slice(start, start + 1500)
-  const m = block.match(SCHEDULED_RE)
-  return m ? m[1].trim() : null
+  const scheduledMatch = block.match(SCHEDULED_RE)
+  const reminderMatch = block.match(REMINDER_RE)
+  return {
+    scheduled: scheduledMatch ? scheduledMatch[1].trim() : null,
+    reminder: reminderMatch ? reminderMatch[1].trim() : null
+  }
 }
 
 export async function getScheduledNotesInFolder(folderPath: string): Promise<ScheduledNote[]> {
@@ -167,8 +173,12 @@ export async function getScheduledNotesInFolder(folderPath: string): Promise<Sch
   for (const filePath of mdPaths) {
     try {
       const content = await fs.readFile(filePath, 'utf-8')
-      const scheduled = extractScheduledFromFrontmatter(content.slice(0, 2048))
-      if (scheduled) results.push({ path: filePath, scheduled })
+      const { scheduled, reminder } = extractFromFrontmatter(content.slice(0, 2048))
+      if (scheduled) {
+        const note: ScheduledNote = { path: filePath, scheduled }
+        if (reminder) note.reminder = reminder
+        results.push(note)
+      }
     } catch {
       // skip
     }

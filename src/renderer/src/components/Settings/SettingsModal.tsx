@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
-import { useSettings, PRESET_THEMES, Theme, ThemeColors } from '../../store/useSettings'
-import { X, RotateCcw, Plus, Trash2, Palette, FileText, Key, Keyboard, Download, Upload, Eye, Columns2 } from 'lucide-react'
+import { useSettings, PRESET_THEMES, Theme, ThemeColors, REMINDER_ADVANCE_OPTIONS } from '../../store/useSettings'
+import { X, RotateCcw, Plus, Trash2, Palette, FileText, Key, Keyboard, Download, Upload, Eye, Columns2, Bell } from 'lucide-react'
 import './SettingsModal.css'
 
-type SettingsSection = 'appearance' | 'editor' | 'ai' | 'shortcuts'
+type SettingsSection = 'appearance' | 'editor' | 'notifications' | 'ai' | 'shortcuts'
 
 const SHORTCUTS_LIST: { category: string; keys: { action: string; keys: string }[] }[] = [
   { category: 'App', keys: [
@@ -34,6 +34,7 @@ export default function SettingsModal() {
     activeThemeId, customThemes,
     typography, lineWrapping, fontSize, tabSize, autoSave, editorMode,
     openaiApiKey, anthropicApiKey, geminiApiKey, setOpenaiApiKey, setAnthropicApiKey, setGeminiApiKey,
+    remindersEnabled, reminderAdvanceMinutes, setRemindersEnabled, setReminderAdvanceMinutes,
     setActiveTheme, addCustomTheme, deleteCustomTheme, exportThemes, importThemes,
     setTypography, setLineWrapping, setFontSize, setTabSize, setAutoSave, setEditorMode,
     resetSettings
@@ -66,6 +67,7 @@ export default function SettingsModal() {
   const navItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
     { id: 'editor', label: 'Editor', icon: <FileText size={16} /> },
+    { id: 'notifications', label: 'Notifications', icon: <Bell size={16} /> },
     { id: 'ai', label: 'AI', icon: <Key size={16} /> },
     { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={16} /> }
   ]
@@ -274,6 +276,35 @@ export default function SettingsModal() {
                   Ideas for later: preview font size, confirm when closing unsaved tab, default canvas zoom, date format for notes.
                 </p>
               </>
+            )}
+
+            {section === 'notifications' && (
+              <div className="settings-group">
+                <h3>Reminders</h3>
+                <p className="settings-hint">
+                  Get desktop notifications for scheduled notes. Set a date on any note using the calendar in the sidebar.
+                </p>
+                <div className="settings-row">
+                  <label>Enable reminders</label>
+                  <input
+                    type="checkbox"
+                    checked={remindersEnabled}
+                    onChange={e => setRemindersEnabled(e.target.checked)}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>Remind me</label>
+                  <select
+                    value={reminderAdvanceMinutes}
+                    onChange={e => setReminderAdvanceMinutes(parseInt(e.target.value, 10))}
+                    disabled={!remindersEnabled}
+                  >
+                    {REMINDER_ADVANCE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             )}
 
             {section === 'ai' && (

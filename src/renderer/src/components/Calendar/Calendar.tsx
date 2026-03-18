@@ -13,6 +13,7 @@ import {
   addDays,
   parseISO
 } from 'date-fns'
+import { X } from 'lucide-react'
 import { useWorkspace, getNotesByDate, getUpcomingNotes } from '../../store/useWorkspace'
 import './Calendar.css'
 
@@ -23,8 +24,15 @@ export default function Calendar() {
   const activeWorkspaceIndex = useWorkspace((s) => s.activeWorkspaceIndex)
   const noteSchedules = useWorkspace((s) => s.noteSchedules)
   const loadScheduledNotes = useWorkspace((s) => s.loadScheduledNotes)
+  const setNoteDate = useWorkspace((s) => s.setNoteDate)
   const openFileNode = useWorkspace((s) => s.openFileNode)
   const tree = useWorkspace((s) => s.tree)
+
+  async function handleRemoveSchedule(path: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    await setNoteDate(path, null)
+    await loadScheduledNotes()
+  }
 
   const [viewDate, setViewDate] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -131,13 +139,23 @@ export default function Calendar() {
               const node = findNodeByPath(path)
               const name = node?.name ?? path.replace(/^.*[/\\]/, '')
               return (
-                <button
-                  key={path}
-                  type="button"
-                  onClick={() => node && openFileNode(node)}
-                >
-                  {name}
-                </button>
+                <div key={path} className="calendar-note-item">
+                  <button
+                    type="button"
+                    className="calendar-note-name"
+                    onClick={() => node && openFileNode(node)}
+                  >
+                    {name}
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-note-remove"
+                    onClick={(e) => handleRemoveSchedule(path, e)}
+                    title="Remove from calendar"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
+                </div>
               )
             })}
           </div>
@@ -160,15 +178,24 @@ export default function Calendar() {
                 // keep raw
               }
               return (
-                <button
-                  key={path}
-                  type="button"
-                  className="calendar-upcoming-item"
-                  onClick={() => node && openFileNode(node)}
-                >
-                  <span>{name}</span>
-                  <time>{dateLabel}</time>
-                </button>
+                <div key={path} className="calendar-upcoming-item">
+                  <button
+                    type="button"
+                    className="calendar-upcoming-info"
+                    onClick={() => node && openFileNode(node)}
+                  >
+                    <span>{name}</span>
+                    <time>{dateLabel}</time>
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-note-remove"
+                    onClick={(e) => handleRemoveSchedule(path, e)}
+                    title="Remove from calendar"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
+                </div>
               )
             })}
           </div>

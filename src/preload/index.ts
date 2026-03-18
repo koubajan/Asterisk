@@ -55,10 +55,22 @@ const api: AsteriskAPI = {
   openExternalUrl: (url: string) =>
     ipcRenderer.invoke('open-external-url', url),
 
+  setReminderConfig: (config: import('./types').ReminderConfig) =>
+    ipcRenderer.invoke('reminder:set-config', config),
+
+  getReminderConfig: () =>
+    ipcRenderer.invoke('reminder:get-config'),
+
   onFolderChange: (callback: (tree: FolderNode[]) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, tree: FolderNode[]) => callback(tree)
     ipcRenderer.on('folder:changed', listener)
     return () => ipcRenderer.removeListener('folder:changed', listener)
+  },
+
+  onReminderOpenNote: (callback: (notePath: string) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, notePath: string) => callback(notePath)
+    ipcRenderer.on('reminder:open-note', listener)
+    return () => ipcRenderer.removeListener('reminder:open-note', listener)
   }
 }
 

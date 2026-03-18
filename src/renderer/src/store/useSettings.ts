@@ -28,6 +28,14 @@ export const PRESET_THEMES: Theme[] = [
 
 export type EditorMode = 'live-preview' | 'split-view'
 
+export const REMINDER_ADVANCE_OPTIONS = [
+  { value: 0, label: 'At scheduled time' },
+  { value: 5, label: '5 minutes before' },
+  { value: 15, label: '15 minutes before' },
+  { value: 30, label: '30 minutes before' },
+  { value: 60, label: '1 hour before' }
+]
+
 interface SettingsState {
   isSettingsOpen: boolean
   activeThemeId: string
@@ -46,6 +54,10 @@ interface SettingsState {
   openaiApiKey: string
   anthropicApiKey: string
   geminiApiKey: string
+  /** Whether desktop reminders are enabled */
+  remindersEnabled: boolean
+  /** Minutes before scheduled time to show reminder */
+  reminderAdvanceMinutes: number
 
   openSettings: () => void
   closeSettings: () => void
@@ -65,6 +77,8 @@ interface SettingsState {
   setEditorMode: (val: EditorMode) => void
   setEditorPreviewRatio: (val: number) => void
   setAiPanelWidth: (val: number) => void
+  setRemindersEnabled: (val: boolean) => void
+  setReminderAdvanceMinutes: (val: number) => void
   resetSettings: () => void
 }
 
@@ -99,6 +113,8 @@ export const useSettings = create<SettingsState>()(
       openaiApiKey: '',
       anthropicApiKey: '',
       geminiApiKey: '',
+      remindersEnabled: true,
+      reminderAdvanceMinutes: 5,
 
       openSettings: () => set({ isSettingsOpen: true }),
       closeSettings: () => set({ isSettingsOpen: false }),
@@ -132,6 +148,8 @@ export const useSettings = create<SettingsState>()(
       setEditorMode: (editorMode) => set({ editorMode }),
       setEditorPreviewRatio: (editorPreviewRatio) => set({ editorPreviewRatio: Math.max(0.2, Math.min(0.8, editorPreviewRatio)) }),
       setAiPanelWidth: (aiPanelWidth) => set({ aiPanelWidth: Math.max(280, Math.min(600, aiPanelWidth)) }),
+      setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
+      setReminderAdvanceMinutes: (reminderAdvanceMinutes) => set({ reminderAdvanceMinutes }),
       resetSettings: () => set({ 
         activeThemeId: 'preset-bw',
         typography: 'sans', 
@@ -141,7 +159,9 @@ export const useSettings = create<SettingsState>()(
         autoSave: true,
         editorMode: 'live-preview',
         editorPreviewRatio: 0.5,
-        aiPanelWidth: 360
+        aiPanelWidth: 360,
+        remindersEnabled: true,
+        reminderAdvanceMinutes: 5
       })
     }),
     {
@@ -159,7 +179,9 @@ export const useSettings = create<SettingsState>()(
         aiPanelWidth: state.aiPanelWidth,
         openaiApiKey: state.openaiApiKey,
         anthropicApiKey: state.anthropicApiKey,
-        geminiApiKey: state.geminiApiKey
+        geminiApiKey: state.geminiApiKey,
+        remindersEnabled: state.remindersEnabled,
+        reminderAdvanceMinutes: state.reminderAdvanceMinutes
       })
     }
   )
