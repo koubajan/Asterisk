@@ -43,6 +43,9 @@ const api: AsteriskAPI = {
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('fs:read-image-data-url', filePath),
 
+  saveImage: (dataUrl: string, defaultName: string) =>
+    ipcRenderer.invoke('fs:save-image', dataUrl, defaultName),
+
   fetchUrlText: (url: string) =>
     ipcRenderer.invoke('fetch-url-text', url),
 

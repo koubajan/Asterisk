@@ -73,6 +73,7 @@ export interface AsteriskAPI {
   getScheduledNotes(folderPath: string): Promise<IpcResult<{ notes: ScheduledNote[] }>>
   aiChat(req: AIChatRequest): Promise<IpcResult<{ content: string }>>
   readImageAsDataUrl(filePath: string): Promise<IpcResult<{ dataUrl: string }>>
+  saveImage(dataUrl: string, defaultName: string): Promise<IpcResult<{ path: string }>>
   fetchUrlText(url: string): Promise<IpcResult<{ text: string }>>
   fetchImageDataUrl(imageUrl: string): Promise<IpcResult<{ dataUrl: string }>>
   openExternalUrl(url: string): Promise<IpcResult>

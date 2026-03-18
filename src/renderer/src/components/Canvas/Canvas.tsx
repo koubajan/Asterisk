@@ -8,10 +8,11 @@ import CanvasEdge from './CanvasEdge'
 import CanvasGroup from './CanvasGroup'
 import CanvasToolbar from './CanvasToolbar'
 import CanvasContextMenu from './CanvasContextMenu'
+import { exportCanvasAsImage } from './exportCanvas'
 import './Canvas.css'
 
 const BOARD_SIZE = 4000
-const GRID_SIZE = 24
+const GRID_SIZE = 24 // snap grid for nodes
 const ZOOM_MIN = 0.1
 const ZOOM_MAX = 3
 const ZOOM_STEP = 0.1
@@ -601,6 +602,11 @@ export default function Canvas() {
     closeTab(activeFileIndex)
   }
 
+  const handleExport = useCallback(async () => {
+    const defaultName = artifactName.replace(/\.artifact$/i, '') + '.png'
+    await exportCanvasAsImage(nodes, edges, defaultName)
+  }, [nodes, edges, artifactName])
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
@@ -755,6 +761,7 @@ export default function Canvas() {
           onCreateGroup={handleCreateGroup}
           selectionMode={selectionMode}
           onSelectionModeToggle={() => setSelectionMode((m) => !m)}
+          onExport={handleExport}
         />
       </div>
       <div

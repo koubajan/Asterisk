@@ -241,6 +241,33 @@ export function registerIpcHandlers(): void {
     })
   )
 
+  // ── Save image (e.g. canvas export) with save dialog ─────────────────────────
+  ipcMain.handle('fs:save-image', async (_e, dataUrl: string, defaultName: string) => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (!win) return { ok: false, error: 'No window' }
+
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Export Artifact as Image',
+      defaultPath: defaultName || 'artifact.png',
+      filters: [
+        { name: 'PNG Image', extensions: ['png'] },
+        { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }
+      ]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { ok: false, error: 'canceled' }
+    }
+
+    return wrap(async () => {
+      const base64Match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+      if (!base64Match) throw new Error('Invalid data URL')
+      const buffer = Buffer.from(base64Match[1], 'base64')
+      await fs.writeFile(result.filePath!, buffer)
+      return { path: result.filePath! }
+    })
+  })
+
   // ── Read image as data URL: use sharp when available (resize); else raw under cap ─────────
   const SAFE_RAW_BYTES = 550_000 // ~730k base64; over ~1MB can truncate over IPC
   ipcMain.handle('fs:read-image-data-url', (_e, filePath: string) =>

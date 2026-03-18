@@ -1,4 +1,4 @@
-import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group } from 'lucide-react'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 
 interface CanvasToolbarProps {
@@ -19,9 +19,10 @@ interface CanvasToolbarProps {
   onSelectionModeToggle?: () => void
   moveMode?: boolean
   onMoveModeToggle?: () => void
+  onExport?: () => void
 }
 
-export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle }: CanvasToolbarProps) {
+export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport }: CanvasToolbarProps) {
   const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
   const canUndo = historyPast.length > 0
   const canRedo = historyFuture.length > 0
@@ -114,6 +115,14 @@ export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOu
       <span className="canvas-toolbar-zoom">{Math.round(data.viewport.zoom * 100)}%</span>
       <button type="button" className="canvas-toolbar-btn" onClick={onZoomIn} title="Zoom in"><ZoomIn size={16} /></button>
       <button type="button" className="canvas-toolbar-btn" onClick={onZoomReset} title="Reset zoom"><Maximize2 size={16} /></button>
+      {onExport && (
+        <>
+          <span className="canvas-toolbar-sep" />
+          <button type="button" className="canvas-toolbar-btn" onClick={onExport} title="Export as image">
+            <Download size={16} strokeWidth={1.7} />
+          </button>
+        </>
+      )}
     </div>
   )
 }
