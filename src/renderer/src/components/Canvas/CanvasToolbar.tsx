@@ -1,5 +1,8 @@
-import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download, Play } from 'lucide-react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download, Play, LayoutGrid, GitBranch, Network } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
+import type { AutoLayoutMode } from './canvasAutoLayout'
 
 interface CanvasToolbarProps {
   onAddCard?: () => void
@@ -21,12 +24,63 @@ interface CanvasToolbarProps {
   onMoveModeToggle?: () => void
   onExport?: () => void
   onPresent?: () => void
+  onAutoLayout?: (mode: AutoLayoutMode) => void
 }
 
-export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport, onPresent }: CanvasToolbarProps) {
+export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport, onPresent, onAutoLayout }: CanvasToolbarProps) {
   const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
   const canUndo = historyPast.length > 0
   const canRedo = historyFuture.length > 0
+  const [layoutOpen, setLayoutOpen] = useState(false)
+  const [layoutMenuPos, setLayoutMenuPos] = useState({ top: 0, left: 0 })
+  const layoutButtonRef = useRef<HTMLButtonElement>(null)
+  const layoutMenuRef = useRef<HTMLDivElement>(null)
+
+  const nonGroupCount = data.nodes.filter((n) => n.type !== 'group').length
+
+  const updateLayoutMenuPosition = useCallback(() => {
+    const btn = layoutButtonRef.current
+    if (!btn) return
+    const r = btn.getBoundingClientRect()
+    const menuW = 200
+    const menuH = 140
+    let left = r.left
+    let top = r.bottom + 4
+    if (left + menuW > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - menuW - 8)
+    }
+    if (top + menuH > window.innerHeight - 8) {
+      top = Math.max(8, r.top - menuH - 4)
+    }
+    setLayoutMenuPos({ top, left })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!layoutOpen) return
+    updateLayoutMenuPosition()
+  }, [layoutOpen, updateLayoutMenuPosition])
+
+  useEffect(() => {
+    if (!layoutOpen) return
+    window.addEventListener('resize', updateLayoutMenuPosition)
+    window.addEventListener('scroll', updateLayoutMenuPosition, true)
+    return () => {
+      window.removeEventListener('resize', updateLayoutMenuPosition)
+      window.removeEventListener('scroll', updateLayoutMenuPosition, true)
+    }
+  }, [layoutOpen, updateLayoutMenuPosition])
+
+  useEffect(() => {
+    if (!layoutOpen) return
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node
+      if (layoutButtonRef.current?.contains(t)) return
+      if (layoutMenuRef.current?.contains(t)) return
+      setLayoutOpen(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [layoutOpen])
 
   return (
     <div className="canvas-toolbar-wrap">
@@ -109,6 +163,62 @@ export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOu
         <>
           <span className="canvas-toolbar-sep" />
           <button type="button" className="canvas-toolbar-btn" onClick={onCreateGroup} title="Group selection"><Group size={16} strokeWidth={1.7} /></button>
+        </>
+      )}
+      {onAutoLayout && nonGroupCount >= 2 && (
+        <>
+          <span className="canvas-toolbar-sep" />
+          <div className="canvas-toolbar-layout-wrap">
+            <button
+              ref={layoutButtonRef}
+              type="button"
+              className={`canvas-toolbar-btn${layoutOpen ? ' active' : ''}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setLayoutOpen((o) => !o)
+              }}
+              title="Auto-layout nodes (grid, tree, or force)"
+            >
+              <LayoutGrid size={16} strokeWidth={1.7} />
+            </button>
+            {layoutOpen &&
+              createPortal(
+                <div
+                  ref={layoutMenuRef}
+                  className="canvas-toolbar-layout-menu canvas-toolbar-layout-menu-portal"
+                  style={{ position: 'fixed', top: layoutMenuPos.top, left: layoutMenuPos.left, zIndex: 20000 }}
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onAutoLayout('grid'); setLayoutOpen(false) }}
+                    title="Arrange in a grid"
+                  >
+                    <LayoutGrid size={14} /> Grid
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onAutoLayout('tree'); setLayoutOpen(false) }}
+                    title="Layered layout from edges (DAG)"
+                  >
+                    <GitBranch size={14} /> Tree / layers
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { onAutoLayout('force'); setLayoutOpen(false) }}
+                    title="Physics simulation using edges"
+                  >
+                    <Network size={14} /> Force-directed
+                  </button>
+                </div>,
+                document.body
+              )}
+          </div>
         </>
       )}
       <span className="canvas-toolbar-sep" />

@@ -75,7 +75,7 @@ npm run dev
 - **Node types** — Text (Markdown), file (link to workspace file), link (URL/YouTube embed), image, group
 - **File previews** — Markdown, code with syntax highlighting, CSV tables, PDF, Excalidraw drawings
 - **Connections** — Edges between nodes with optional labels
-- **Layout** — Align, distribute, group; pan and zoom; grid snapping
+- **Layout** — Align, distribute, group; **auto-layout** (grid, layered DAG via dagre, force-directed via d3-force); pan and zoom; grid snapping
 - **History** — Undo / redo (⌘Z, ⌘⇧Z) with toolbar back/forward buttons
 - **Export** — Export canvas as PNG image
 - **Presentation mode** — Step through nodes as slides with keyboard navigation
@@ -156,7 +156,8 @@ npm run dev
 | Technology | Role |
 |------------|------|
 | **date-fns** | Date formatting and calendar logic |
-| **D3** | Graph visualization (neural / note graph) |
+| **D3** | Graph visualization (neural / note graph); **d3-force** for artifact auto-layout |
+| **dagre** | Layered directed graph layout for artifacts |
 | **Custom canvas** | Artifact board (nodes, edges, pan/zoom) |
 
 ---

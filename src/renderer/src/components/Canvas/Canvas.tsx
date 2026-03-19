@@ -10,6 +10,7 @@ import CanvasToolbar from './CanvasToolbar'
 import CanvasContextMenu from './CanvasContextMenu'
 import PresentationOverlay from './PresentationOverlay'
 import { exportCanvasAsImage } from './exportCanvas'
+import { applyAutoLayout, type AutoLayoutMode } from './canvasAutoLayout'
 import './Canvas.css'
 
 const BOARD_SIZE = 4000
@@ -60,7 +61,7 @@ export default function Canvas() {
   const areaRef = useRef<HTMLDivElement>(null)
   const clearEdgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const centeredPathRef = useRef<string | null>(null)
-  const { data, updateNode, setViewport, addNode, addEdge, removeNode, removeEdge, updateEdge, undo, redo, startPresentation } = useArtifacts()
+  const { data, updateNode, setViewport, setData, addNode, addEdge, removeNode, removeEdge, updateEdge, undo, redo, startPresentation } = useArtifacts()
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useCanvas(areaRef)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [connectionFromId, setConnectionFromId] = useState<string | null>(null)
@@ -467,6 +468,14 @@ export default function Canvas() {
     })
   }, [selectedNodes, addNode])
 
+  const handleAutoLayout = useCallback(
+    (mode: AutoLayoutMode) => {
+      const next = applyAutoLayout(data, mode, selectedIds)
+      setData(next)
+    },
+    [data, selectedIds, setData]
+  )
+
   const handleGroupDrag = useCallback(
     (groupId: string, dx: number, dy: number) => {
       const group = nodes.find((n) => n.id === groupId)
@@ -793,6 +802,7 @@ export default function Canvas() {
           onSelectionModeToggle={() => setSelectionMode((m) => !m)}
           onExport={handleExport}
           onPresent={startPresentation}
+          onAutoLayout={handleAutoLayout}
         />
       </div>
       <div

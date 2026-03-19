@@ -322,6 +322,54 @@
   color: white;
 }
 
+.canvas-toolbar-layout-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.canvas-toolbar-layout-menu {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  z-index: 50;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Portaled to document.body — not clipped by canvas overflow */
+.canvas-toolbar-layout-menu-portal {
+  position: fixed !important;
+  margin-top: 0;
+}
+
+.canvas-toolbar-layout-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-toolbar-layout-menu button:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
 .canvas-toolbar-zoom {
   font-size: 11px;
   color: var(--text-muted);
