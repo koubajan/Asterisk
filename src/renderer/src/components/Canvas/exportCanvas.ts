@@ -122,6 +122,9 @@ function drawNode(
     ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     ctx.fillText(node.title, contentX, contentY + 12)
     contentY += 24
+  } else if (node.type === 'text' && node.minimal) {
+    /* Reserve space for color-only header bar (no title in export) */
+    contentY += 22
   }
 
   if (node.type === 'text' && node.content) {

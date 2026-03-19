@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download, Play, LayoutGrid, GitBranch, Network } from 'lucide-react'
+import { Undo2, Redo2, Plus, ZoomIn, ZoomOut, Maximize2, Link2, Globe, Hand, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Space, Group, Download, Play, LayoutGrid, GitBranch, Network, Type } from 'lucide-react'
 import { useArtifacts } from '../../store/useArtifacts'
 import type { AutoLayoutMode } from './canvasAutoLayout'
 
 interface CanvasToolbarProps {
   onAddCard?: () => void
+  onAddTextNote?: () => void
   onAddLink?: () => void
   onZoomIn?: () => void
   onZoomOut?: () => void
@@ -27,7 +28,7 @@ interface CanvasToolbarProps {
   onAutoLayout?: (mode: AutoLayoutMode) => void
 }
 
-export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport, onPresent, onAutoLayout }: CanvasToolbarProps) {
+export default function CanvasToolbar({ onAddCard, onAddTextNote, onAddLink, onZoomIn, onZoomOut, onZoomReset, connectionMode, onConnectionModeToggle, canAlign, onAlign, canDistribute, onDistribute, canCreateGroup, onCreateGroup, selectionMode, onSelectionModeToggle, moveMode, onMoveModeToggle, onExport, onPresent, onAutoLayout }: CanvasToolbarProps) {
   const { data, historyPast, historyFuture, undo, redo } = useArtifacts()
   const canUndo = historyPast.length > 0
   const canRedo = historyFuture.length > 0
@@ -116,6 +117,11 @@ export default function CanvasToolbar({ onAddCard, onAddLink, onZoomIn, onZoomOu
       <button type="button" className="canvas-toolbar-btn" onClick={onAddCard} title="Add card">
         <Plus size={16} strokeWidth={1.7} />
       </button>
+      {onAddTextNote && (
+        <button type="button" className="canvas-toolbar-btn" onClick={onAddTextNote} title="Add text note (colors in header; double-click body to edit)">
+          <Type size={16} strokeWidth={1.7} />
+        </button>
+      )}
       {onAddLink && (
         <button type="button" className="canvas-toolbar-btn" onClick={onAddLink} title="Add link (website or YouTube). Paste a URL to add at center.">
           <Globe size={16} strokeWidth={1.7} />

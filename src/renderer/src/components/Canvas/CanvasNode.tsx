@@ -106,6 +106,9 @@ function getCardTitle(node: CanvasNodeType): string {
     return name || 'File'
   }
   if (node.type === 'link') return 'Link'
+  if (node.type === 'text' && node.minimal) {
+    return node.title?.trim() || ''
+  }
   if (node.type === 'text' && node.content) {
     const first = node.content.split('\n')[0].trim()
     return first.slice(0, 48) || 'Note'
@@ -568,6 +571,7 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
     setIsEditingTitle(false)
   }
 
+  const isMinimalText = node.type === 'text' && node.minimal
   const displayTitle = (node.title?.trim() || getCardTitle(node)).slice(0, 48)
   const borderColor = node.color ?? 'var(--border)'
   const bg = node.backgroundColor ?? 'var(--bg-elevated)'
@@ -606,28 +610,33 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
       onDoubleClick={handleDoubleClick}
       onContextMenu={onContextMenu}
     >
-      <div className="canvas-node-header" style={{ borderColor, color: textContrast || undefined }}>
-        {isEditingTitle ? (
-          <input
-            ref={titleInputRef}
-            className="canvas-node-title-input"
-            value={titleValue}
-            onChange={(e) => setTitleValue(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitTitle()
-              if (e.key === 'Escape') { setTitleValue(node.title ?? ''); setIsEditingTitle(false) }
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span
-            className="canvas-node-title-text"
-            onClick={(e) => { e.stopPropagation(); if (!moveMode) setIsEditingTitle(true) }}
-            title={moveMode ? undefined : 'Click to edit title'}
-          >
-            {displayTitle}
-          </span>
+      <div
+        className={`canvas-node-header${isMinimalText ? ' canvas-node-header-minimal' : ''}`}
+        style={{ borderColor, color: textContrast || undefined }}
+      >
+        {!isMinimalText && (
+          isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              className="canvas-node-title-input"
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitTitle()
+                if (e.key === 'Escape') { setTitleValue(node.title ?? ''); setIsEditingTitle(false) }
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className="canvas-node-title-text"
+              onClick={(e) => { e.stopPropagation(); if (!moveMode) setIsEditingTitle(true) }}
+              title={moveMode ? undefined : 'Click to edit title'}
+            >
+              {displayTitle}
+            </span>
+          )
         )}
         {onUpdate && !moveMode && (
           <div className="canvas-node-header-actions" ref={colorPickerAnchorRef}>
@@ -709,7 +718,9 @@ export default function CanvasNode({ node, workspacePath = '', filePreviewConten
                 />
                 )
               : (
-                <span className="canvas-node-placeholder">Double-click to edit</span>
+                <span className="canvas-node-placeholder">
+                  {isMinimalText ? 'Double-click to add text' : 'Double-click to edit'}
+                </span>
                 )
           )
         )}

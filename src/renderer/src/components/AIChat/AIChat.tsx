@@ -20,6 +20,7 @@ interface ArtifactCommand {
   type?: CanvasNode['type']
   content?: string
   title?: string
+  minimal?: boolean
   x?: number
   y?: number
   width?: number
@@ -91,6 +92,7 @@ function summarizeArtifactForAI(
       }
     } else if (n.type === 'text') {
       base.content = n.content.length > 300 ? n.content.slice(0, 300) + '...' : n.content
+      if (n.minimal) base.minimal = true
     } else if (n.type === 'link') {
       base.url = n.content
       base.embedded = n.embed ?? true
@@ -231,10 +233,6 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
   }, [provider, model, modelOptions, setModel])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
   const lastAssistant = messages.filter((m) => m.role === 'assistant').pop()
   const lastContent = lastAssistant?.content ?? ''
   const words = wordCount(lastContent)
@@ -271,6 +269,16 @@ export default function AIChat({ onClose }: AIChatProps) {
     return () => clearInterval(t)
   }, [loading, revealedWords, totalWords])
 
+  useEffect(() => {
+    const el = messagesEndRef.current
+    if (!el) return
+    el.scrollIntoView({
+      behavior: loading ? 'auto' : 'smooth',
+      block: 'end',
+      inline: 'nearest'
+    })
+  }, [messages, loading, lastContent])
+
   // When opened via command, send the pending prompt (syntax commands use apply-friendly: send .md + ask for code block)
   useEffect(() => {
     if (!pendingPrompt) return
@@ -297,6 +305,7 @@ AVAILABLE COMMANDS (respond with \`\`\`artifact code block, one JSON per line):
 
 1. ADD NODE with tempId (for connecting new nodes):
 {"action": "add_node", "tempId": "new-1", "type": "text", "content": "Node content here", "title": "Title", "x": 100, "y": 100, "width": 240, "height": 140}
+- Plain text-only note (no title row; colors only in header): add "minimal": true on text nodes
 - Use tempId (like "new-1", "new-2") to reference new nodes in edges/groups
 - Position using formula: x = col*300+100, y = row*250+100
 
@@ -456,7 +465,8 @@ OTHER RULES:
                   width,
                   height,
                   color: cmd.color,
-                  backgroundColor: cmd.backgroundColor
+                  backgroundColor: cmd.backgroundColor,
+                  ...(type === 'text' && cmd.minimal ? { minimal: true } : {})
                 }]
               },
               isDirty: true
@@ -472,7 +482,8 @@ OTHER RULES:
               width,
               height,
               color: cmd.color,
-              backgroundColor: cmd.backgroundColor
+              backgroundColor: cmd.backgroundColor,
+              ...(type === 'text' && cmd.minimal ? { minimal: true } : {})
             })
           }
           break
@@ -627,17 +638,19 @@ OTHER RULES:
             </div>
           )
         })}
-        {loading && (
-          <div className="ai-msg assistant ai-msg-typing" aria-label="Thinking">
+        <div ref={messagesEndRef} />
+      </div>
+      {loading && (
+        <div className="ai-panel-thinking" aria-live="polite" aria-label="Thinking">
+          <div className="ai-msg assistant ai-msg-typing">
             <div className="ai-typing-dots" aria-hidden="true">
               <span />
               <span />
               <span />
             </div>
           </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+        </div>
+      )}
       {canApply && (
         <div className="ai-panel-actions">
           <button type="button" className="ai-panel-apply" onClick={handleApplyFromLast}>

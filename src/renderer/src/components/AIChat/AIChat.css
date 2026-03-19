@@ -151,10 +151,28 @@
   overflow: auto;
   overflow-x: hidden;
   padding: 10px 16px 16px;
+  scroll-padding-bottom: 12px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+}
+
+/* Tighten gap to typing row so it reads as the next message, not a new panel */
+.ai-panel:has(.ai-panel-thinking) .ai-panel-messages {
+  padding-bottom: 8px;
+}
+
+/* Thinking sits outside scroll (no clip) but visually continues the thread — no bar/box */
+.ai-panel-thinking {
+  flex-shrink: 0;
+  padding: 0 16px 12px;
+  margin-top: -6px;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .ai-msg {
@@ -249,16 +267,21 @@
 /* Typing indicator when AI is responding */
 .ai-msg.assistant.ai-msg-typing {
   position: relative;
-  min-height: 32px;
-  padding: 14px 16px;
+  min-height: 40px;
+  padding: 14px 18px 16px;
   overflow: visible;
+  /* Skip entrance animation — translateY + overflow:auto on parent clipped the bubble at the bottom */
+  animation: none;
+  scroll-margin-bottom: 12px;
 }
 
 .ai-msg-typing .ai-typing-dots {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0;
+  padding: 6px 2px;
+  /* Room for scale(1) pulse without subpixel clipping at scroll edge */
+  min-height: 14px;
 }
 
 .ai-msg-typing .ai-typing-dots span {
@@ -273,6 +296,27 @@
 .ai-msg-typing .ai-typing-dots span:nth-child(1) { animation-delay: 0s; }
 .ai-msg-typing .ai-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
 .ai-msg-typing .ai-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+/* Strip outside scroll: compact bubble, same look as assistant msgs (overrides block above) */
+.ai-panel-thinking .ai-msg.assistant.ai-msg-typing {
+  max-width: 92%;
+  width: fit-content;
+  min-height: 34px;
+  padding: 9px 14px 10px;
+  animation: ai-msg-in 0.2s ease-out;
+  scroll-margin-bottom: 0;
+}
+
+.ai-panel-thinking .ai-msg-typing .ai-typing-dots {
+  padding: 2px 0;
+  min-height: 12px;
+  gap: 5px;
+}
+
+.ai-panel-thinking .ai-msg-typing .ai-typing-dots span {
+  width: 5px;
+  height: 5px;
+}
 
 @keyframes ai-typing-pulse {
   0%, 100% { opacity: 0.4; transform: scale(0.9); }

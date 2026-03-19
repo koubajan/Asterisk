@@ -16,6 +16,8 @@ export interface CanvasNode {
   childIds?: string[]
   /** When true, link nodes show the URL in an iframe (embed) instead of card preview. */
   embed?: boolean
+  /** Text-only note: header shows only border/background color pickers (same as cards); double-click body to edit. */
+  minimal?: boolean
 }
 
 export interface CanvasEdge {

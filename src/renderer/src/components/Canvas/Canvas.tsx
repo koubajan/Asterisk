@@ -541,6 +541,26 @@ export default function Canvas() {
     })
   }, [getCanvasCoords, addNode])
 
+  const handleAddTextNoteAtViewportCenter = useCallback(() => {
+    const el = areaRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const centerClientX = rect.left + rect.width / 2
+    const centerClientY = rect.top + rect.height / 2
+    const { x, y } = getCanvasCoords(centerClientX, centerClientY)
+    const w = 220
+    const h = 72
+    addNode({
+      type: 'text',
+      minimal: true,
+      x: Math.max(0, x - w / 2),
+      y: Math.max(0, y - h / 2),
+      width: w,
+      height: h,
+      content: ''
+    })
+  }, [getCanvasCoords, addNode])
+
   const handleAddLinkAtViewportCenter = useCallback(() => {
     const el = areaRef.current
     if (!el) return
@@ -784,6 +804,7 @@ export default function Canvas() {
       <div className="canvas-toolbar-bar">
         <CanvasToolbar
           onAddCard={handleAddCardAtViewportCenter}
+          onAddTextNote={handleAddTextNoteAtViewportCenter}
           onAddLink={handleAddLinkAtViewportCenter}
           onZoomIn={() => handleZoom(ZOOM_STEP)}
           onZoomOut={() => handleZoom(-ZOOM_STEP)}

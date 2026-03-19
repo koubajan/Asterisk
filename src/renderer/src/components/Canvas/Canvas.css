@@ -619,6 +619,10 @@
   transition: background 0.15s ease;
 }
 
+.canvas-node-header-minimal {
+  justify-content: flex-end;
+}
+
 .canvas-node-title-text {
   flex: 1;
   min-width: 0;
