@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import { exportToSvg } from '@excalidraw/excalidraw'
 import { useWorkspace } from '../../store/useWorkspace'
 
 interface ExcalidrawEmbedProps {
@@ -39,6 +38,7 @@ export default function ExcalidrawEmbed({ relativePath, currentFilePath }: Excal
           return
         }
 
+        const { exportToSvg } = await import('@excalidraw/excalidraw')
         const svg = await exportToSvg({
           elements,
           appState: {

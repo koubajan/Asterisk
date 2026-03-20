@@ -346,6 +346,11 @@
   overflow: hidden;
 }
 
+.sidebar-graph-loading {
+  flex: 1;
+  min-height: 120px;
+}
+
 /* ─── Tree scroll area ───────────────────────────────── */
 
 .sidebar-tree {

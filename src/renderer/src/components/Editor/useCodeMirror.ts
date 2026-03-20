@@ -6,6 +6,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { indentUnit } from '@codemirror/language'
 import { useSettings } from '../../store/useSettings'
+import { editorModeForCodeMirror } from './editorModeRef'
 import { asteriskEditorTheme, asteriskHighlighting } from './asteriskTheme'
 import { markdownKeymap } from './keybindings'
 import { editorLinkClick } from './editorLinkClick'
@@ -21,6 +22,11 @@ interface UseCodeMirrorOptions {
   getCurrentFilePath?: () => string | null
   /** Called when user presses Cmd/Ctrl+D to toggle bookmark. */
   onToggleBookmark?: () => void
+}
+
+/** Line gutter only in split view; live preview uses hide-syntax extensions (see editorModeRef). */
+function lineNumbersExtForMode(editorMode: 'live-preview' | 'split-view') {
+  return editorMode === 'split-view' ? lineNumbers() : []
 }
 
 function buildSettingsExtensions(lineWrapping: boolean, fontSize: number, tabSize: number) {
@@ -44,7 +50,7 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
   const onSaveRef = useRef(onSave)
   const onToggleBookmarkRef = useRef(onToggleBookmark)
   const settingsCompartmentRef = useRef<Compartment | null>(null)
-  const livePreviewCompartmentRef = useRef<Compartment | null>(null)
+  const lineNumbersCompartmentRef = useRef<Compartment | null>(null)
 
   onChangeRef.current = onChange
   onSaveRef.current = onSave
@@ -52,8 +58,9 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
 
   const { lineWrapping, fontSize, tabSize, editorMode } = useSettings()
 
+  editorModeForCodeMirror.current = editorMode
+
   useEffect(() => {
-    // containerRef.current is always set because the div is always in the DOM
     const container = containerRef.current
     if (!container) return
 
@@ -79,12 +86,13 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
     const settingsCompartment = new Compartment()
     settingsCompartmentRef.current = settingsCompartment
 
-    const livePreviewCompartment = new Compartment()
-    livePreviewCompartmentRef.current = livePreviewCompartment
+    const lineNumbersCompartment = new Compartment()
+    lineNumbersCompartmentRef.current = lineNumbersCompartment
 
     const { lineWrapping: l, fontSize: f, tabSize: t, editorMode: m } = useSettings.getState()
+    editorModeForCodeMirror.current = m
     const initialSettings = buildSettingsExtensions(l, f, t)
-    const initialLivePreview = m === 'live-preview' ? [markdownHideSyntax] : [lineNumbers()]
+    const initialLineNumbers = lineNumbersExtForMode(m)
 
     const extensions = [
       history(),
@@ -92,7 +100,8 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
       asteriskEditorTheme,
       asteriskHighlighting,
       settingsCompartment.of(initialSettings),
-      livePreviewCompartment.of(initialLivePreview),
+      lineNumbersCompartment.of(initialLineNumbers),
+      ...markdownHideSyntax,
       editorLinkClick(getCurrentFilePath ?? (() => null)),
       editorCommandsExtension(getCurrentFilePath ?? (() => null)),
       autocompletion({ override: [commandCompletionSource(getCurrentFilePath ?? (() => null))] }),
@@ -121,13 +130,11 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
       view.destroy()
       viewRef.current = null
       settingsCompartmentRef.current = null
-      livePreviewCompartmentRef.current = null
+      lineNumbersCompartmentRef.current = null
     }
-  // Intentionally empty — runs once on mount, container is always present
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Reconfigure editor when settings change
   useEffect(() => {
     const view = viewRef.current
     const compartment = settingsCompartmentRef.current
@@ -136,13 +143,35 @@ export function useCodeMirror({ onChange, onSave, getCurrentFilePath, onToggleBo
     view.dispatch({ effects: compartment.reconfigure(next) })
   }, [lineWrapping, fontSize, tabSize])
 
-  // Reconfigure live preview mode (show/hide markdown syntax)
   useEffect(() => {
+    const syncFromPersistedSettings = () => {
+      const view = viewRef.current
+      const settingsCompartment = settingsCompartmentRef.current
+      const lineCompartment = lineNumbersCompartmentRef.current
+      if (!view || !settingsCompartment || !lineCompartment) return
+      const { lineWrapping: lw, fontSize: fs, tabSize: ts, editorMode: em } = useSettings.getState()
+      editorModeForCodeMirror.current = em
+      const settingsExt = buildSettingsExtensions(lw, fs, ts)
+      view.dispatch({
+        effects: [
+          settingsCompartment.reconfigure(settingsExt),
+          lineCompartment.reconfigure(lineNumbersExtForMode(em))
+        ]
+      })
+    }
+    const unsub = useSettings.persist.onFinishHydration(syncFromPersistedSettings)
+    if (useSettings.persist.hasHydrated()) syncFromPersistedSettings()
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    editorModeForCodeMirror.current = editorMode
     const view = viewRef.current
-    const compartment = livePreviewCompartmentRef.current
-    if (!view || !compartment) return
-    const next = editorMode === 'live-preview' ? [markdownHideSyntax] : [lineNumbers()]
-    view.dispatch({ effects: compartment.reconfigure(next) })
+    const lineCompartment = lineNumbersCompartmentRef.current
+    if (!view || !lineCompartment) return
+    view.dispatch({
+      effects: [lineCompartment.reconfigure(lineNumbersExtForMode(editorMode))]
+    })
   }, [editorMode])
 
   const updateContent = useCallback((newContent: string) => {

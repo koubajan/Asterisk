@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, lazy, Suspense } from 'react'
 import { useWorkspace } from './store/useWorkspace'
 import { useArtifacts, getCanvasContentForSave } from './store/useArtifacts'
 import { useAutoSave } from './hooks/useAutoSave'
@@ -6,14 +6,15 @@ import TopBar from './components/TopBar/TopBar'
 import Sidebar from './components/Sidebar/Sidebar'
 import EditorPane from './components/Editor/EditorPane'
 import EditorTabs from './components/Editor/EditorTabs'
-import Canvas from './components/Canvas/Canvas'
-import ExcalidrawPane from './components/Editor/ExcalidrawPane'
-import PreviewPane from './components/Preview/PreviewPane'
 import StatusBar from './components/StatusBar/StatusBar'
-import SettingsModal from './components/Settings/SettingsModal'
-import AIChat from './components/AIChat/AIChat'
-import HistoryPanel from './components/History/HistoryPanel'
 import { useSettings, PRESET_THEMES } from './store/useSettings'
+
+const Canvas = lazy(() => import('./components/Canvas/Canvas'))
+const ExcalidrawPane = lazy(() => import('./components/Editor/ExcalidrawPane'))
+const PreviewPane = lazy(() => import('./components/Preview/PreviewPane'))
+const AIChat = lazy(() => import('./components/AIChat/AIChat'))
+const HistoryPanel = lazy(() => import('./components/History/HistoryPanel'))
+const SettingsModal = lazy(() => import('./components/Settings/SettingsModal'))
 import type { FolderNode } from './types'
 
 /** Lighten a hex color by a factor 0–1 (e.g. 0.04 adds ~4% lightness). */
@@ -38,7 +39,8 @@ export default function App() {
   const previewVisible = useWorkspace((s) => s.previewVisible)
   const centerRef = useRef<HTMLDivElement>(null)
 
-  const { activeThemeId, customThemes, typography, editorMode, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth, remindersEnabled, reminderAdvanceMinutes } = useSettings()
+  const { activeThemeId, customThemes, typography, editorMode, editorPreviewRatio, setEditorPreviewRatio, aiPanelWidth, setAiPanelWidth, remindersEnabled, reminderAdvanceMinutes, isSettingsOpen } = useSettings()
+  const safeEditorPreviewRatio = Math.min(0.8, Math.max(0.2, editorPreviewRatio))
   const workspaces = useWorkspace((s) => s.workspaces)
   const activeWorkspaceIndex = useWorkspace((s) => s.activeWorkspaceIndex)
   const tree = useWorkspace((s) => s.tree)
@@ -46,7 +48,7 @@ export default function App() {
 
   const handleResize = useCallback((e: React.MouseEvent) => {
     const startX = e.clientX
-    const startRatio = editorPreviewRatio
+    const startRatio = safeEditorPreviewRatio
     const center = centerRef.current
     if (!center) return
 
@@ -67,7 +69,7 @@ export default function App() {
     document.body.style.userSelect = 'none'
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
-  }, [editorPreviewRatio, setEditorPreviewRatio])
+  }, [safeEditorPreviewRatio, setEditorPreviewRatio])
 
   const handleResizeAi = useCallback((e: React.MouseEvent) => {
     const startX = e.clientX
@@ -112,7 +114,13 @@ export default function App() {
   const openFile = useWorkspace((s) => s.openFiles[s.activeFileIndex] ?? null)
   const isCanvasOpen = openFile?.path.endsWith('.artifact') ?? false
   const isExcalidrawOpen = openFile?.path.endsWith('.excalidraw') ?? false
-  const showPreviewPanel = editorMode === 'split-view' && !isCanvasOpen && !isExcalidrawOpen && !!openFile && isMdPath(openFile.path)
+  const showPreviewPanel =
+    editorMode === 'split-view' &&
+    previewVisible &&
+    !isCanvasOpen &&
+    !isExcalidrawOpen &&
+    !!openFile &&
+    isMdPath(openFile.path)
   const updateContent = useWorkspace((s) => s.updateContent)
   const markSaved = useWorkspace((s) => s.markSaved)
   const loadCanvas = useArtifacts((s) => s.loadCanvas)
@@ -218,9 +226,13 @@ export default function App() {
             <EditorTabs />
             <div className="workspace-editor-content">
               {isCanvasOpen ? (
-                <Canvas />
+                <Suspense fallback={<div className="workspace-deferred-loading" aria-hidden />}>
+                  <Canvas />
+                </Suspense>
               ) : isExcalidrawOpen && openFile ? (
-                <ExcalidrawPane filePath={openFile.path} initialContent={openFile.content} />
+                <Suspense fallback={<div className="workspace-deferred-loading" aria-hidden />}>
+                  <ExcalidrawPane filePath={openFile.path} initialContent={openFile.content} />
+                </Suspense>
               ) : (
                 <EditorPane />
               )}
@@ -235,8 +247,10 @@ export default function App() {
                 role="separator"
                 aria-orientation="vertical"
               />
-              <div className="workspace-preview-wrap" style={{ flex: 1 - editorPreviewRatio, minWidth: 0 }}>
-                <PreviewPane />
+              <div className="workspace-preview-wrap" style={{ flex: 1 - safeEditorPreviewRatio, minWidth: 0 }}>
+                <Suspense fallback={<div className="workspace-deferred-loading" aria-hidden />}>
+                  <PreviewPane />
+                </Suspense>
               </div>
             </>
           )}
@@ -251,14 +265,24 @@ export default function App() {
               aria-orientation="vertical"
             />
             <div className="workspace-ai-wrap" style={{ width: aiPanelWidth, minWidth: 280, maxWidth: 600 }}>
-              <AIChat onClose={() => setAiPanelOpen(false)} />
+              <Suspense fallback={<div className="workspace-deferred-loading" aria-hidden />}>
+                <AIChat onClose={() => setAiPanelOpen(false)} />
+              </Suspense>
             </div>
           </>
         )}
       </div>
       <StatusBar />
-      <SettingsModal />
-      {historyPanelOpen && <HistoryPanel onClose={() => setHistoryPanelOpen(false)} />}
+      {isSettingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal />
+        </Suspense>
+      )}
+      {historyPanelOpen && (
+        <Suspense fallback={null}>
+          <HistoryPanel onClose={() => setHistoryPanelOpen(false)} />
+        </Suspense>
+      )}
     </>
   )
 }

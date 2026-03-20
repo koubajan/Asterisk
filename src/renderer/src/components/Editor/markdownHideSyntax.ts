@@ -1,46 +1,61 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet, WidgetType } from '@codemirror/view'
-import { EditorState, Range, StateField } from '@codemirror/state'
+import { EditorState, Prec, Range, StateField } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
-import mermaid from 'mermaid'
+import { isLivePreviewMode } from './editorModeRef'
 
-// ── Mermaid init + SVG cache ─────────────────────────────────────────
+let lastMermaidFieldLive: boolean | null = null
+
+// ── Mermaid init + SVG cache (dynamic import — avoids loading mermaid on startup) ──
 
 const mermaidSvgCache = new Map<string, string>()
-let mermaidReady = false
 let mermaidIdCounter = 0
 
-function ensureMermaid() {
-  if (mermaidReady) return
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'dark',
-    securityLevel: 'strict',
-    fontFamily: 'var(--font-mono, monospace)',
-    themeVariables: {
-      primaryColor: '#3b82f6',
-      primaryTextColor: '#ffffff',
-      primaryBorderColor: '#60a5fa',
-      lineColor: '#6b7280',
-      secondaryColor: '#1e293b',
-      tertiaryColor: '#0f172a',
-      background: '#0f172a',
-      mainBkg: '#1e293b',
-      secondBkg: '#334155',
-      nodeBorder: '#475569',
-      clusterBkg: '#1e293b',
-      clusterBorder: '#475569',
-      titleColor: '#f1f5f9',
-      edgeLabelBackground: '#1e293b',
-      textColor: '#e2e8f0',
-      nodeTextColor: '#f1f5f9'
-    }
-  })
-  mermaidReady = true
+type MermaidAPI = typeof import('mermaid').default
+let mermaidSingleton: MermaidAPI | null = null
+let mermaidLoadPromise: Promise<MermaidAPI> | null = null
+
+async function getMermaid(): Promise<MermaidAPI> {
+  if (mermaidSingleton) return mermaidSingleton
+  if (!mermaidLoadPromise) {
+    mermaidLoadPromise = import('mermaid').then((mod) => {
+      const mermaid = mod.default
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'strict',
+        fontFamily: 'var(--font-mono, monospace)',
+        themeVariables: {
+          primaryColor: '#3b82f6',
+          primaryTextColor: '#ffffff',
+          primaryBorderColor: '#60a5fa',
+          lineColor: '#6b7280',
+          secondaryColor: '#1e293b',
+          tertiaryColor: '#0f172a',
+          background: '#0f172a',
+          mainBkg: '#1e293b',
+          secondBkg: '#334155',
+          nodeBorder: '#475569',
+          clusterBkg: '#1e293b',
+          clusterBorder: '#475569',
+          titleColor: '#f1f5f9',
+          edgeLabelBackground: '#1e293b',
+          textColor: '#e2e8f0',
+          nodeTextColor: '#f1f5f9'
+        }
+      })
+      mermaidSingleton = mermaid
+      return mermaid
+    })
+  }
+  return mermaidLoadPromise
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-const hiddenMark = Decoration.mark({ class: 'cm-md-hidden' })
+const hiddenMark = Decoration.mark({
+  class: 'cm-md-hidden',
+  attributes: { style: 'display:none !important' }
+})
 const codeBlockLineDeco = Decoration.line({ class: 'cm-md-codeblock-line' })
 const fenceLangRe = /^\s{0,3}(`{3,}|~{3,})(\w*)/
 
@@ -174,7 +189,7 @@ class MermaidWidget extends WidgetType {
 
   private async renderAsync(el: HTMLElement) {
     try {
-      ensureMermaid()
+      const mermaid = await getMermaid()
       const id = `cm-mm-${++mermaidIdCounter}`
       await mermaid.parse(this.code)
       const { svg } = await mermaid.render(id, this.code)
@@ -197,6 +212,7 @@ class MermaidWidget extends WidgetType {
 // ── Mermaid StateField (block decorations must use StateField) ────────
 
 function buildMermaidDecos(state: EditorState): DecorationSet {
+  if (!isLivePreviewMode()) return Decoration.none
   const decos: Range<Decoration>[] = []
   const tree = syntaxTree(state)
 
@@ -233,10 +249,18 @@ function buildMermaidDecos(state: EditorState): DecorationSet {
 }
 
 const mermaidField = StateField.define<DecorationSet>({
-  create(state) { return buildMermaidDecos(state) },
-  update(value, tr) {
-    if (tr.docChanged || tr.selection) return buildMermaidDecos(tr.state)
-    return value
+  create(state) {
+    lastMermaidFieldLive = isLivePreviewMode()
+    return buildMermaidDecos(state)
+  },
+  update(_value, tr) {
+    const live = isLivePreviewMode()
+    const selectionChanged = !tr.startState.selection.eq(tr.newSelection)
+    if (tr.docChanged || selectionChanged || tr.reconfigured || lastMermaidFieldLive !== live) {
+      lastMermaidFieldLive = live
+      return buildMermaidDecos(tr.state)
+    }
+    return _value
   },
   provide: (f) => EditorView.decorations.from(f)
 })
@@ -244,6 +268,7 @@ const mermaidField = StateField.define<DecorationSet>({
 // ── ViewPlugin decorations (inline / line only – no block replace) ───
 
 function buildDecorations(view: EditorView): DecorationSet {
+  if (!isLivePreviewMode()) return Decoration.none
   const { state } = view
   const decos: Range<Decoration>[] = []
   const tree = syntaxTree(state)
@@ -489,13 +514,23 @@ function buildDecorations(view: EditorView): DecorationSet {
 const markdownHideSyntaxPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
+    lastLive: boolean
 
     constructor(view: EditorView) {
-      this.decorations = buildDecorations(view)
+      this.lastLive = isLivePreviewMode()
+      this.decorations = this.lastLive ? buildDecorations(view) : Decoration.none
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      const live = isLivePreviewMode()
+      const modeChanged = live !== this.lastLive
+      this.lastLive = live
+      if (!live) {
+        this.decorations = Decoration.none
+        return
+      }
+      const reconfigured = update.transactions.some((t) => t.reconfigured)
+      if (modeChanged || update.docChanged || update.viewportChanged || update.selectionSet || reconfigured) {
         this.decorations = buildDecorations(update.view)
       }
     }
@@ -505,4 +540,9 @@ const markdownHideSyntaxPlugin = ViewPlugin.fromClass(
   }
 )
 
-export const markdownHideSyntax = [markdownHideSyntaxPlugin, mermaidField]
+// TreeHighlighter uses Prec.high (inner DOM). Lowest precedence = outer marks, so we only wrap
+// delimiter tokens (**, ~~, etc.) and leave inner highlighted text visible.
+export const markdownHideSyntax = [
+  Prec.lowest(markdownHideSyntaxPlugin),
+  Prec.lowest(mermaidField)
+]

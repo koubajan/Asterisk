@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react'
 import { FolderOpen, FilePlus, FolderPlus, RotateCw, X, Check, GitBranch, List, Star, LayoutGrid, PenLine, Calendar as CalendarIcon } from 'lucide-react'
 import { useWorkspace } from '../../store/useWorkspace'
 import { useFileOps } from '../../hooks/useFileOps'
 import FileTree from './FileTree'
-import NeuralGraph from '../NeuralGraph/NeuralGraph'
+const NeuralGraph = lazy(() => import('../NeuralGraph/NeuralGraph'))
 import CalendarPanel from '../Calendar/Calendar'
 import FilterBar, { type SortBy, type SortDir } from './FilterBar'
 import type { FolderNode } from '../../types'
@@ -401,7 +401,9 @@ export default function Sidebar() {
 
       {/* Neural Graph view */}
       {view === 'graph' && (
-        <NeuralGraph query={query} selectedTagIds={selectedTagIds} />
+        <Suspense fallback={<div className="sidebar-graph-loading" aria-hidden />}>
+          <NeuralGraph query={query} selectedTagIds={selectedTagIds} />
+        </Suspense>
       )}
 
       {/* Calendar view */}

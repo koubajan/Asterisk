@@ -46,6 +46,12 @@
   flex-direction: column;
 }
 
+/* Placeholder while lazy chunks (canvas, preview, AI, etc.) load */
+.workspace-deferred-loading {
+  flex: 1;
+  min-height: 0;
+}
+
 .workspace-resizer {
   width: 6px;
   flex-shrink: 0;

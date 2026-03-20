@@ -1,35 +1,43 @@
 import { useEffect, useRef, useState } from 'react'
-import mermaid from 'mermaid'
 
-let mermaidInitialized = false
+type MermaidAPI = typeof import('mermaid').default
+let mermaidSingleton: MermaidAPI | null = null
+let mermaidInitPromise: Promise<MermaidAPI> | null = null
 
-function initMermaid() {
-  if (mermaidInitialized) return
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'dark',
-    securityLevel: 'strict',
-    fontFamily: 'var(--font-mono, monospace)',
-    themeVariables: {
-      primaryColor: '#3b82f6',
-      primaryTextColor: '#ffffff',
-      primaryBorderColor: '#60a5fa',
-      lineColor: '#6b7280',
-      secondaryColor: '#1e293b',
-      tertiaryColor: '#0f172a',
-      background: '#0f172a',
-      mainBkg: '#1e293b',
-      secondBkg: '#334155',
-      nodeBorder: '#475569',
-      clusterBkg: '#1e293b',
-      clusterBorder: '#475569',
-      titleColor: '#f1f5f9',
-      edgeLabelBackground: '#1e293b',
-      textColor: '#e2e8f0',
-      nodeTextColor: '#f1f5f9'
-    }
-  })
-  mermaidInitialized = true
+async function getMermaid(): Promise<MermaidAPI> {
+  if (mermaidSingleton) return mermaidSingleton
+  if (!mermaidInitPromise) {
+    mermaidInitPromise = import('mermaid').then((mod) => {
+      const mermaid = mod.default
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'strict',
+        fontFamily: 'var(--font-mono, monospace)',
+        themeVariables: {
+          primaryColor: '#3b82f6',
+          primaryTextColor: '#ffffff',
+          primaryBorderColor: '#60a5fa',
+          lineColor: '#6b7280',
+          secondaryColor: '#1e293b',
+          tertiaryColor: '#0f172a',
+          background: '#0f172a',
+          mainBkg: '#1e293b',
+          secondBkg: '#334155',
+          nodeBorder: '#475569',
+          clusterBkg: '#1e293b',
+          clusterBorder: '#475569',
+          titleColor: '#f1f5f9',
+          edgeLabelBackground: '#1e293b',
+          textColor: '#e2e8f0',
+          nodeTextColor: '#f1f5f9'
+        }
+      })
+      mermaidSingleton = mermaid
+      return mermaid
+    })
+  }
+  return mermaidInitPromise
 }
 
 interface MermaidBlockProps {
@@ -43,11 +51,11 @@ export function MermaidBlock({ id, code }: MermaidBlockProps) {
   const [svg, setSvg] = useState<string | null>(null)
 
   useEffect(() => {
-    initMermaid()
     let cancelled = false
 
     async function render() {
       try {
+        const mermaid = await getMermaid()
         const isValid = await mermaid.parse(code)
         if (!isValid) {
           if (!cancelled) setError('Invalid Mermaid syntax')

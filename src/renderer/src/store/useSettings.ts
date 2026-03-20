@@ -172,6 +172,16 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'asterisk-settings',
+      merge: (persistedState, currentState) => {
+        const next = { ...currentState, ...(persistedState as object) } as SettingsState
+        if (next.editorMode !== 'live-preview' && next.editorMode !== 'split-view') {
+          next.editorMode = 'live-preview'
+        }
+        if (typeof next.editorPreviewRatio === 'number' && !Number.isNaN(next.editorPreviewRatio)) {
+          next.editorPreviewRatio = Math.max(0.2, Math.min(0.8, next.editorPreviewRatio))
+        }
+        return next
+      },
       partialize: (state) => ({
         activeThemeId: state.activeThemeId,
         customThemes: state.customThemes,
