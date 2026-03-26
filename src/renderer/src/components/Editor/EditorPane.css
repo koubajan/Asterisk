@@ -253,3 +253,9 @@
   color: var(--text-muted);
   opacity: 0.7;
 }
+
+/* Editable table widget in live preview (CodeMirror block widget) */
+.cm-editor .preview-editable-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}

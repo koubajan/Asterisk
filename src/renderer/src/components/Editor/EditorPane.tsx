@@ -8,6 +8,7 @@ import NoteDatePicker from '../Calendar/NoteDatePicker'
 import ImagePreview from './ImagePreview'
 import './CommandSuggestionPanel.css'
 import './EditorPane.css'
+import '../Preview/PreviewPane.css'
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'heic', 'heif', 'avif']
 function isImageFileName(name: string): boolean {

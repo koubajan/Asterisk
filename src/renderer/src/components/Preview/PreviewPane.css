@@ -151,8 +151,171 @@
   border: 1px solid var(--border);
 }
 
-.preview-content tr:nth-child(even) td {
+.preview-content table:not(.preview-editable-table) tr:nth-child(even) td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* Editable markdown tables (preview) */
+.preview-editable-table-wrap {
+  position: relative;
+  margin: 1em 0;
+  padding-left: 36px;
+}
+
+.preview-editable-table-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.preview-editable-table-edge-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.preview-editable-table-edge-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.preview-editable-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+.preview-editable-table th.preview-editable-corner {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.preview-editable-table thead tr th {
+  position: relative;
+  vertical-align: bottom;
+  background: var(--bg-elevated);
+  color: #cccccc;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+}
+
+.preview-editable-col-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  margin-bottom: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.preview-editable-table thead tr th:hover .preview-editable-col-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.preview-editable-table tbody tr {
+  position: relative;
+}
+
+.preview-editable-table tbody tr:hover .preview-editable-row-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.preview-editable-row-gutter {
+  width: 32px;
+  min-width: 32px;
+  padding: 4px 2px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.preview-editable-row-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.preview-editable-mini-btn {
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  min-width: 22px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.preview-editable-mini-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.preview-editable-mini-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.preview-editable-mini-btn-danger:hover:not(:disabled) {
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+.preview-editable-cell {
+  min-height: 1.25em;
+  outline: none;
+  padding: 2px 0;
+  border-radius: 2px;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+
+.preview-editable-cell:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.preview-editable-cell:focus {
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.preview-editable-table td:not(.preview-editable-row-gutter) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+}
+
+.preview-editable-table tbody tr:nth-child(even) td:not(.preview-editable-row-gutter) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.preview-editable-table-error {
+  padding: 12px;
+  border: 1px solid #ef4444;
+  border-radius: var(--radius, 6px);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  font-size: 13px;
+  margin: 1em 0;
 }
 
 /* Horizontal rule */

@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify'
 import { useWorkspace } from '../../store/useWorkspace'
 import { MermaidBlock } from './MermaidRenderer'
 import ExcalidrawEmbed from './ExcalidrawEmbed'
+import EditableTable, { extractTables, replaceTableByIndex } from './EditableTable'
 import './PreviewPane.css'
 
 // Configure marked
@@ -39,9 +40,10 @@ function createRendererWithPlaceholders(): Renderer {
 }
 
 interface ContentSegment {
-  type: 'html' | 'mermaid' | 'excalidraw'
+  type: 'html' | 'mermaid' | 'excalidraw' | 'table'
   content: string
   id?: string
+  tableIndex?: number
 }
 
 function parseContentWithEmbeds(content: string): ContentSegment[] {
@@ -88,6 +90,33 @@ function parseContentWithEmbeds(content: string): ContentSegment[] {
   return segments
 }
 
+/** Split document on markdown tables, then parse each text chunk for mermaid/excalidraw. */
+function parsePreviewDocument(content: string): ContentSegment[] {
+  const norm = content.replace(/\r\n/g, '\n')
+  const tables = extractTables(norm)
+  if (tables.length === 0) {
+    return parseContentWithEmbeds(norm)
+  }
+  const out: ContentSegment[] = []
+  let cursor = 0
+  let tableIndex = 0
+  for (const t of tables) {
+    if (t.start > cursor) {
+      out.push(...parseContentWithEmbeds(norm.slice(cursor, t.start)))
+    }
+    out.push({
+      type: 'table',
+      content: t.markdown,
+      tableIndex: tableIndex++
+    })
+    cursor = t.end
+  }
+  if (cursor < norm.length) {
+    out.push(...parseContentWithEmbeds(norm.slice(cursor)))
+  }
+  return out
+}
+
 function isWebUrl(href: string): boolean {
   return /^https?:\/\//i.test(href) || href.startsWith('mailto:')
 }
@@ -104,8 +133,17 @@ export default function PreviewPane() {
 
   const segments = useMemo(() => {
     if (!content) return []
-    return parseContentWithEmbeds(content)
+    return parsePreviewDocument(content)
   }, [content])
+
+  const handleTableChange = useCallback(
+    (tableIndex: number, newMarkdown: string) => {
+      const st = useWorkspace.getState()
+      const current = st.openFiles[st.activeFileIndex]?.content ?? ''
+      updateContent(replaceTableByIndex(current, tableIndex, newMarkdown))
+    },
+    [updateContent]
+  )
 
   // After render: enable checkboxes and wire them to update content
   useEffect(() => {
@@ -186,8 +224,15 @@ export default function PreviewPane() {
         {segments.map((segment, index) =>
           segment.type === 'html' ? (
             <div
-              key={index}
+              key={`html-${index}`}
               dangerouslySetInnerHTML={{ __html: segment.content }}
+            />
+          ) : segment.type === 'table' ? (
+            <EditableTable
+              key={`table-${segment.tableIndex ?? index}`}
+              markdown={segment.content}
+              tableIndex={segment.tableIndex ?? 0}
+              onTableChange={handleTableChange}
             />
           ) : segment.type === 'mermaid' ? (
             <MermaidBlock

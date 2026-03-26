@@ -2,8 +2,10 @@ import { EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet, WidgetTy
 import { EditorState, Prec, Range, StateField } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 import { isLivePreviewMode } from './editorModeRef'
+import { mountPreviewEditableTable } from '../Preview/createEditableTableDom'
 
 let lastMermaidFieldLive: boolean | null = null
+let lastTableFieldLive: boolean | null = null
 
 // ── Mermaid init + SVG cache (dynamic import — avoids loading mermaid on startup) ──
 
@@ -96,7 +98,7 @@ class HRWidget extends WidgetType {
   toDOM() {
     const el = document.createElement('span')
     el.className = 'cm-md-hr'
-    el.setAttribute('aria-hidden', 'true')
+    el.setAttribute('role', 'presentation')
     return el
   }
   eq() { return true }
@@ -209,6 +211,52 @@ class MermaidWidget extends WidgetType {
   get estimatedHeight() { return 200 }
 }
 
+/** True if selection touches any ancestor `Table` node (full table, not just a row). */
+function cursorWithinTableAncestor(state: EditorState, leaf: { parent: { name: string; from: number; to: number; parent: unknown } | null }): boolean {
+  let p: { name: string; from: number; to: number; parent: unknown } | null = leaf.parent
+  while (p) {
+    if (p.name === 'Table') return cursorWithin(state, p.from, p.to)
+    p = p.parent as typeof p | null
+  }
+  return false
+}
+
+class MarkdownTableLiveWidget extends WidgetType {
+  constructor(readonly tableFrom: number, readonly tableTo: number) {
+    super()
+  }
+
+  eq(other: MarkdownTableLiveWidget) {
+    return this.tableFrom === other.tableFrom && this.tableTo === other.tableTo
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const wrap = document.createElement('div')
+    const { tableFrom, tableTo } = this
+    const md = view.state.doc.sliceString(tableFrom, tableTo)
+    const { destroy } = mountPreviewEditableTable(wrap, {
+      markdown: md,
+      onChange: (next) => {
+        view.dispatch({ changes: { from: tableFrom, to: tableTo, insert: next } })
+      }
+    })
+    ;(wrap as HTMLElement & { __mdTableUnmount?: () => void }).__mdTableUnmount = destroy
+    return wrap
+  }
+
+  destroy(dom: HTMLElement): void {
+    ;(dom as HTMLElement & { __mdTableUnmount?: () => void }).__mdTableUnmount?.()
+  }
+
+  // Use WidgetType default ignoreEvent (always true): editor must not handle
+  // pointer/keyboard events here, or it moves the doc selection and drops the
+  // table widget (cursor “leaves” the table → raw markdown flashes / wrong focus).
+
+  get estimatedHeight() {
+    return 200
+  }
+}
+
 // ── Mermaid StateField (block decorations must use StateField) ────────
 
 function buildMermaidDecos(state: EditorState): DecorationSet {
@@ -259,6 +307,47 @@ const mermaidField = StateField.define<DecorationSet>({
     if (tr.docChanged || selectionChanged || tr.reconfigured || lastMermaidFieldLive !== live) {
       lastMermaidFieldLive = live
       return buildMermaidDecos(tr.state)
+    }
+    return _value
+  },
+  provide: (f) => EditorView.decorations.from(f)
+})
+
+// ── Markdown table StateField (editable rendered table in live preview) ─
+
+function buildTableLiveDecos(state: EditorState): DecorationSet {
+  if (!isLivePreviewMode()) return Decoration.none
+  const decos: Range<Decoration>[] = []
+  const tree = syntaxTree(state)
+
+  tree.iterate({
+    enter(node) {
+      if (node.name !== 'Table') return
+      if (cursorWithin(state, node.from, node.to)) return false
+      decos.push(
+        Decoration.replace({
+          widget: new MarkdownTableLiveWidget(node.from, node.to),
+          block: true
+        }).range(node.from, node.to)
+      )
+      return false
+    }
+  })
+
+  return Decoration.set(decos, true)
+}
+
+const tableLiveField = StateField.define<DecorationSet>({
+  create(state) {
+    lastTableFieldLive = isLivePreviewMode()
+    return buildTableLiveDecos(state)
+  },
+  update(_value, tr) {
+    const live = isLivePreviewMode()
+    const selectionChanged = !tr.startState.selection.eq(tr.newSelection)
+    if (tr.docChanged || selectionChanged || tr.reconfigured || lastTableFieldLive !== live) {
+      lastTableFieldLive = live
+      return buildTableLiveDecos(tr.state)
     }
     return _value
   },
@@ -464,8 +553,7 @@ function buildDecorations(view: EditorView): DecorationSet {
 
           // ── Table delimiter row: hide the |---|---| line ──────
           case 'TableDelimiter': {
-            if (!parent) return
-            if (cursorWithin(state, parent.from, parent.to)) return
+            if (cursorWithinTableAncestor(state, node.node)) return
             hide(node.from, node.to)
             return
           }
@@ -544,5 +632,6 @@ const markdownHideSyntaxPlugin = ViewPlugin.fromClass(
 // delimiter tokens (**, ~~, etc.) and leave inner highlighted text visible.
 export const markdownHideSyntax = [
   Prec.lowest(markdownHideSyntaxPlugin),
-  Prec.lowest(mermaidField)
+  Prec.lowest(mermaidField),
+  Prec.lowest(tableLiveField)
 ]
